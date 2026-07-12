@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./Backend
+      dockerfile: Dockerfile
+    container_name: ecosphere_backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./Backend:/app
+    environment:
+      - DEBUG=1
+      - PYTHONUNBUFFERED=1
+    restart: always
+
+  frontend:
+    build:
+      context: ./EcoSphere
+      dockerfile: Dockerfile
+    container_name: ecosphere_frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: always
