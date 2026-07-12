@@ -42,18 +42,40 @@ const SocialPage = ({ activeTab, setActiveTab }) => {
 
   return (
     <div className="space-y-6 relative">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="flex flex-col gap-5">
         <div>
           <h2 className="text-2xl font-bold text-slate-800">CSR & Employee Engagement</h2>
           <p className="text-sm text-slate-500 mt-1">Manage activities, track participation, and monitor social impact.</p>
         </div>
-        <button 
-          onClick={() => setShowModal(true)}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 shadow-sm"
-        >
-          <Plus size={18} />
-          New Activity
-        </button>
+        
+        {/* Horizontal Tabs */}
+        <div className="flex flex-wrap items-center gap-2">
+          {['CSR Activities', 'Employee Participation', 'Diversity Dashboard'].map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-6 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                activeTab === tab
+                  ? 'bg-blue-600 text-white border border-blue-600 shadow-sm'
+                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 hover:text-slate-800 shadow-sm'
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+
+        {activeTab === 'CSR Activities' && (
+          <div>
+            <button 
+              onClick={() => setShowModal(true)}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors inline-flex items-center gap-2 shadow-sm"
+            >
+              <Plus size={18} />
+              New Activity
+            </button>
+          </div>
+        )}
       </div>
 
       {activeTab === 'CSR Activities' && (
