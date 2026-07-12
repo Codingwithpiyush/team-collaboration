@@ -12,8 +12,9 @@ import {
   X
 } from 'lucide-react';
 import GoalModal from './GoalModal';
+import { BASE_API_URL } from '../../config';
 
-const GoalTable = ({ goals, setGoals }) => {
+const GoalTable = ({ goals, setGoals, refresh }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedGoalIds, setSelectedGoalIds] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -79,35 +80,86 @@ const GoalTable = ({ goals, setGoals }) => {
     setDeletingGoal({ id: 'BULK', name: `${goalsToDelete.length} selected goals`, count: goalsToDelete.length });
   };
 
-  const handleConfirmDelete = () => {
+  const mapStatusToBackend = (status) => {
+    const s = status.toLowerCase();
+    if (s === 'on track') return 'active';
+    if (s === 'completed') return 'achieved';
+    if (s === 'delayed') return 'active';
+    return s;
+  };
+
+  const handleConfirmDelete = async () => {
     if (!deletingGoal) return;
-    if (deletingGoal.id === 'BULK') {
-      setGoals(prev => prev.filter(g => !selectedGoalIds.includes(g.id)));
-      showToast(`Deleted ${deletingGoal.count} goals`);
-      setSelectedGoalIds([]);
-    } else {
-      setGoals(prev => prev.filter(g => g.id !== deletingGoal.id));
-      showToast(`Deleted "${deletingGoal.name}"`);
-      setSelectedGoalIds(prev => prev.filter(id => id !== deletingGoal.id));
+    try {
+      if (deletingGoal.id === 'BULK') {
+        await Promise.all(selectedGoalIds.map(id =>
+          fetch(`${BASE_API_URL}/api/environmental/goals/${id}/`, { method: 'DELETE' })
+        ));
+        showToast(`Deleted ${deletingGoal.count} goals`);
+        setSelectedGoalIds([]);
+      } else {
+        const res = await fetch(`${BASE_API_URL}/api/environmental/goals/${deletingGoal.id}/`, { method: 'DELETE' });
+        if (res.ok) {
+          showToast(`Deleted "${deletingGoal.name}"`);
+          setSelectedGoalIds(prev => prev.filter(id => id !== deletingGoal.id));
+        } else {
+          showToast("Failed to delete goal", "error");
+        }
+      }
+      if (refresh) await refresh();
+    } catch (err) {
+      console.error(err);
+      showToast("Error connecting to backend", "error");
     }
     setDeletingGoal(null);
   };
 
-  const handleSaveGoal = (goalData) => {
-    if (editingGoal) {
-      setGoals(prev => prev.map(g => g.id === goalData.id ? goalData : g));
-      showToast(`Updated "${goalData.name}"`);
-    } else {
-      setGoals(prev => [goalData, ...prev]);
-      showToast(`Added "${goalData.name}"`);
+  const handleSaveGoal = async (goalData) => {
+    const isEdit = !!editingGoal;
+    const url = isEdit
+      ? `${BASE_API_URL}/api/environmental/goals/${editingGoal.id}/`
+      : `${BASE_API_URL}/api/environmental/goals/`;
+    const method = isEdit ? 'PUT' : 'POST';
+
+    const payload = {
+      name: goalData.name,
+      target_type: goalData.targetType || 'carbon_reduction',
+      target_value: parseFloat(goalData.targetCo2),
+      start_date: new Date().toISOString().split('T')[0],
+      target_date: goalData.deadline,
+      status: mapStatusToBackend(goalData.status),
+      department: goalData.departmentId,
+      description: goalData.description
+    };
+
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok || res.status === 201) {
+        showToast(isEdit ? `Updated "${goalData.name}"` : `Added "${goalData.name}"`);
+        setIsModalOpen(false);
+        setEditingGoal(null);
+        if (refresh) await refresh();
+      } else {
+        const errorData = await res.json();
+        showToast(errorData?.detail || errorData?.non_field_errors?.[0] || "Error saving goal", "error");
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("Error connecting to backend", "error");
     }
-    setIsModalOpen(false);
-    setEditingGoal(null);
   };
 
   const handleExport = (format) => {
     setIsExportOpen(false);
-    showToast(`Exporting as ${format}... (Mock Export Complete)`);
+    const fmt = format.toLowerCase() === 'excel' ? 'excel' : format.toLowerCase();
+    const downloadUrl = `${BASE_API_URL}/api/environmental/goals/export/?export=${fmt}`;
+    window.open(downloadUrl, '_blank');
+    showToast(`Exporting as ${format}...`);
   };
 
   const getStatusBadge = (status) => {

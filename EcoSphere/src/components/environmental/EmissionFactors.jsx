@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { Plus, Edit, Trash2, Search, X, AlertTriangle, Flame } from 'lucide-react';
+import { BASE_API_URL } from '../../config';
 
-const EmissionFactors = ({ emissionFactors, setEmissionFactors }) => {
+const EmissionFactors = ({ emissionFactors, setEmissionFactors, refresh }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedIds, setSelectedIds] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -33,10 +34,29 @@ const EmissionFactors = ({ emissionFactors, setEmissionFactors }) => {
   const handleOpenDeleteConfirm = (factor) => setDeletingFactor(factor);
   const handleOpenDeleteSelected = () => { if (selectedIds.length === 0) return; setDeletingFactor({ id: 'BULK', name: `${selectedIds.length} selected factors`, count: selectedIds.length }); };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (!deletingFactor) return;
-    if (deletingFactor.id === 'BULK') { setEmissionFactors(p => p.filter(ef => !selectedIds.includes(ef.id))); showToast(`Deleted ${deletingFactor.count} factors`); setSelectedIds([]); }
-    else { setEmissionFactors(p => p.filter(ef => ef.id !== deletingFactor.id)); showToast(`Deleted "${deletingFactor.name}"`); setSelectedIds(p => p.filter(id => id !== deletingFactor.id)); }
+    try {
+      if (deletingFactor.id === 'BULK') {
+        await Promise.all(selectedIds.map(id =>
+          fetch(`${BASE_API_URL}/api/environmental/emission-factors/${id}/`, { method: 'DELETE' })
+        ));
+        showToast(`Deleted ${deletingFactor.count} factors`);
+        setSelectedIds([]);
+      } else {
+        const res = await fetch(`${BASE_API_URL}/api/environmental/emission-factors/${deletingFactor.id}/`, { method: 'DELETE' });
+        if (res.ok) {
+          showToast(`Deleted "${deletingFactor.name}"`);
+          setSelectedIds(prev => prev.filter(id => id !== deletingFactor.id));
+        } else {
+          showToast("Failed to delete factor", "error");
+        }
+      }
+      if (refresh) await refresh();
+    } catch (err) {
+      console.error(err);
+      showToast("Error connecting to backend", "error");
+    }
     setDeletingFactor(null);
   };
 
@@ -50,12 +70,42 @@ const EmissionFactors = ({ emissionFactors, setEmissionFactors }) => {
     setErrors(e); return Object.keys(e).length === 0;
   };
 
-  const handleFormSubmit = (ev) => {
+  const handleFormSubmit = async (ev) => {
     ev.preventDefault(); if (!validate()) return;
-    const rec = { id: editingFactor ? editingFactor.id : 'EF-' + Date.now(), name: formData.name.trim(), category: formData.category, emissionValue: parseFloat(formData.emissionValue), unit: formData.unit.trim(), status: formData.status };
-    if (editingFactor) { setEmissionFactors(p => p.map(ef => ef.id === rec.id ? rec : ef)); showToast(`Updated "${rec.name}"`); }
-    else { setEmissionFactors(p => [rec, ...p]); showToast(`Added "${rec.name}"`); }
-    setIsModalOpen(false);
+
+    const isEdit = !!editingFactor;
+    const url = isEdit
+      ? `${BASE_API_URL}/api/environmental/emission-factors/${editingFactor.id}/`
+      : `${BASE_API_URL}/api/environmental/emission-factors/`;
+    const method = isEdit ? 'PUT' : 'POST';
+
+    const payload = {
+      name: formData.name.trim(),
+      category: formData.category.toLowerCase(),
+      factor: parseFloat(formData.emissionValue),
+      unit: formData.unit.trim(),
+      status: formData.status.toLowerCase()
+    };
+
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok || res.status === 201) {
+        showToast(isEdit ? `Updated "${formData.name}"` : `Added "${formData.name}"`);
+        setIsModalOpen(false);
+        if (refresh) await refresh();
+      } else {
+        const errorData = await res.json();
+        showToast(errorData?.detail || errorData?.non_field_errors?.[0] || "Error saving factor", "error");
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("Error connecting to backend", "error");
+    }
   };
 
   const categories = ['Fuel', 'Utility', 'Travel', 'Waste', 'Material'];

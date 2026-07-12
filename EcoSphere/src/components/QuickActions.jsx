@@ -1,7 +1,7 @@
 import React from 'react';
 import { PlusCircle, Trophy, BarChart3, ChevronRight } from 'lucide-react';
 
-const QuickActions = () => {
+const QuickActions = ({ onActionClick }) => {
   const actions = [
     {
       title: 'Log Carbon Data',
@@ -37,6 +37,7 @@ const QuickActions = () => {
         {actions.map((action, index) => (
           <button 
             key={index} 
+            onClick={() => onActionClick && onActionClick(action.title)}
             className={`w-full flex items-center justify-between p-4 rounded-xl border border-slate-100 bg-white transition-all duration-200 ${action.hover} group hover:shadow-sm`}
           >
             <div className="flex items-center gap-4">
