@@ -1,10 +1,20 @@
 import React from 'react';
 import { Bell, Search } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 
 const Navbar = () => {
+  const location = useLocation();
+  
+  let pageTitle = 'EcoSphere Dashboard';
+  if (location.pathname === '/social') {
+    pageTitle = 'Social : CSR & Employee Engagement';
+  } else if (location.pathname === '/environmental') {
+    pageTitle = 'Environmental';
+  }
+
   return (
     <header className="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-8 sticky top-0 z-10 w-full">
-      <h1 className="text-xl font-semibold text-slate-800">EcoSphere Dashboard</h1>
+      <h1 className="text-xl font-semibold text-slate-800">{pageTitle}</h1>
       
       <div className="flex items-center gap-6">
         <div className="relative">
