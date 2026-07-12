@@ -12,7 +12,7 @@ django-cors-headers>=4.4.0
 python-dotenv>=1.0.1
 
 # Database Adapter (Optional but highly recommended for production like PostgreSQL)
-# psycopg2-binary>=2.9.9
+psycopg2-binary>=2.9.9
 
 # Production WSGI HTTP Server
 gunicorn>=22.0.0
