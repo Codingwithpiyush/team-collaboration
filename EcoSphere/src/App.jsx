@@ -8,6 +8,7 @@ import ReportsPage from './pages/ReportsPage';
 import GovernancePage from './pages/Governance/GovernancePage';
 import GamificationPage from './pages/Gamification/GamificationPage';
 import SettingsPage from './pages/SettingsPage';
+import ChatBot from './components/ChatBot';
 
 import { 
   initialGoals,
@@ -286,6 +287,7 @@ function App() {
         } />
         <Route path="/settings" element={<SettingsPage activeTab={activeTab} />} />
       </Routes>
+      <ChatBot />
     </Layout>
   );
 }

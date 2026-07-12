@@ -171,7 +171,7 @@ const SocialPage = ({ activeTab, setActiveTab }) => {
     }
 
     try {
-      const res = await fetch(`${BASE_API_URL}/api/social/activities/${joiningActivity.id}/join//`, {
+      const res = await fetch(`${BASE_API_URL}/api/social/activities/${joiningActivity.id}/join/`, {
         method: 'POST',
         body: formData
       });

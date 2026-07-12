@@ -41,6 +41,7 @@ urlpatterns = [
     path('api/gamification/', include('gamification.urls')),
     path('api/reports/', include('reports.urls')),
     path('api/dashboard/', include('dashboard.urls')),
+    path('api/chat/', include('chatbot.urls')),
 
 
 

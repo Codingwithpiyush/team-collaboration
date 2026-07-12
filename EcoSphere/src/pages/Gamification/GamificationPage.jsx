@@ -56,7 +56,7 @@ const GamificationPage = ({
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedDifficulty, setSelectedDifficulty] = useState('All');
   const [selectedStatus, setSelectedStatus] = useState('All'); // Status chip filter
-  
+
   // Modal states
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState('form'); // form (new/edit), join
@@ -101,7 +101,7 @@ const GamificationPage = ({
       }
 
       // 2. Fetch all other endpoints
-      const badgeGalleryUrl = empId 
+      const badgeGalleryUrl = empId
         ? `${BASE_API_URL}/api/gamification/badge-gallery/?employee=${empId}`
         : `${BASE_API_URL}/api/gamification/badge-gallery/`;
 
@@ -147,7 +147,7 @@ const GamificationPage = ({
 
         const mappedEmp = empResults.map(mapBackendEmployeeLeaderboardToFrontend);
         const mappedDept = deptResults.map(mapBackendDepartmentLeaderboardToFrontend);
-        
+
         // Merge and sort by rank
         const mergedLeaderboard = [...mappedEmp, ...mappedDept].sort((a, b) => b.xp - a.xp);
         setLeaderboard(mergedLeaderboard);
@@ -194,7 +194,7 @@ const GamificationPage = ({
       const matchesCategory = selectedCategory === 'All' || c.category === selectedCategory;
       const matchesDifficulty = selectedDifficulty === 'All' || c.difficulty === selectedDifficulty;
       const matchesStatus = selectedStatus === 'All' || c.status === selectedStatus;
-      
+
       return matchesSearch && matchesCategory && matchesDifficulty && matchesStatus;
     });
   }, [challenges, searchTerm, selectedCategory, selectedDifficulty, selectedStatus]);
@@ -202,7 +202,7 @@ const GamificationPage = ({
   // Categories list
   const categories = ['All', 'Carbon footprint', 'Waste Management', 'Energy Conservation', 'Product ESG', 'CSR Activity'];
   const difficulties = ['All', 'Easy', 'Medium', 'Hard'];
-  const statuses = ['All', 'Draft', 'Active', 'Under Review', 'Completed', 'Archived'];
+  const statuses = ['All', 'Active', 'Under Review', 'Completed', 'Archived'];
 
   // Challenge CRUD Actions
   const handleOpenCreate = () => {
@@ -546,9 +546,9 @@ const GamificationPage = ({
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(310px, 1fr))', gap: '24px' }}>
               {filteredChallenges.length > 0 ? (
                 filteredChallenges.map(c => (
-                  <ChallengeCard 
-                    key={c.id} 
-                    challenge={c} 
+                  <ChallengeCard
+                    key={c.id}
+                    challenge={c}
                     onJoin={handleOpenJoin}
                     onView={setViewingChallenge}
                     onEdit={handleOpenEdit}
@@ -567,10 +567,10 @@ const GamificationPage = ({
         );
       case 'Challenge Participation':
         return (
-          <ParticipationTable 
-            participation={participation} 
-            onApprove={handleApproveParticipation} 
-            onReject={handleRejectParticipation} 
+          <ParticipationTable
+            participation={participation}
+            onApprove={handleApproveParticipation}
+            onReject={handleRejectParticipation}
           />
         );
       case 'Badges':
@@ -607,9 +607,9 @@ const GamificationPage = ({
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '24px' }}>
               {rewards.map(reward => (
-                <RewardCard 
-                  key={reward.id} 
-                  reward={reward} 
+                <RewardCard
+                  key={reward.id}
+                  reward={reward}
                   onRedeemClick={handleOpenRedeem}
                 />
               ))}
@@ -737,7 +737,7 @@ const GamificationPage = ({
       </div>
 
       {/* Challenge creation/edit/join Modal */}
-      <ChallengeModal 
+      <ChallengeModal
         isOpen={isFormModalOpen}
         onClose={() => setIsFormModalOpen(false)}
         onSave={handleSaveChallenge}
@@ -749,7 +749,7 @@ const GamificationPage = ({
       />
 
       {/* Reward Confirmation Modal */}
-      <RewardModal 
+      <RewardModal
         isOpen={isRewardModalOpen}
         onClose={() => setIsRewardModalOpen(false)}
         reward={selectedReward}
