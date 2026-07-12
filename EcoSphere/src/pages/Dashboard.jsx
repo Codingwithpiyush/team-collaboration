@@ -6,7 +6,12 @@ import RecentActivity from '../components/RecentActivity';
 import QuickActions from '../components/QuickActions';
 import { Leaf, Users, Briefcase, Activity } from 'lucide-react';
 
-const Dashboard = ({ environmentalScore }) => {
+const Dashboard = ({ environmentalScore, governanceScore, gamificationScore }) => {
+  const envScore = environmentalScore !== undefined ? environmentalScore : 82;
+  const govScore = governanceScore !== undefined ? governanceScore : 88;
+  const gamScore = gamificationScore !== undefined ? gamificationScore : 74;
+  const overallScore = Math.round((envScore + 74 + govScore + gamScore) / 4);
+
   return (
     <div className="space-y-6">
       <div>
@@ -18,7 +23,7 @@ const Dashboard = ({ environmentalScore }) => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <ScoreCard 
           title="Environmental Score" 
-          score={environmentalScore !== undefined ? environmentalScore : 82} 
+          score={envScore} 
           total={100} 
           subtitle="Top 15% in Industry"
           icon={Leaf}
@@ -34,7 +39,7 @@ const Dashboard = ({ environmentalScore }) => {
         />
         <ScoreCard 
           title="Governance Score" 
-          score={88} 
+          score={govScore} 
           total={100} 
           subtitle="Excellent Compliance"
           icon={Briefcase}
@@ -42,7 +47,7 @@ const Dashboard = ({ environmentalScore }) => {
         />
         <ScoreCard 
           title="Overall ESG Score" 
-          score={81} 
+          score={overallScore} 
           total={100} 
           subtitle="On track for 2024 target"
           icon={Activity}

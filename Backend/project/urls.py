@@ -40,6 +40,8 @@ urlpatterns = [
     path('api/governance/', include('governance.urls')),
     path('api/gamification/', include('gamification.urls')),
     path('api/reports/', include('reports.urls')),
+    path('api/dashboard/', include('dashboard.urls')),
+
 
 
 
