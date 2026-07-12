@@ -12,15 +12,12 @@ const Navbar = ({ notifications = [], setNotifications }) => {
     pageTitle = 'Social : CSR & Employee Engagement';
   } else if (location.pathname === '/environmental') {
     pageTitle = 'Environmental';
-<<<<<<< HEAD
   } else if (location.pathname === '/reports') {
     pageTitle = 'EcoSphere: Reports';
-=======
   } else if (location.pathname === '/governance') {
     pageTitle = 'Governance : Compliance & Policies';
   } else if (location.pathname === '/gamification') {
     pageTitle = 'Gamification : Employee Engagement';
->>>>>>> fe47715afc776b80cf47a0ed379cf3164b4c3a28
   }
 
   const unreadCount = notifications.filter(n => n.unread).length;

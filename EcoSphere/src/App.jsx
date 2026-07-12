@@ -4,15 +4,12 @@ import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import SocialPage from './pages/SocialPage';
 import EnvironmentalPage from './pages/Environmental/EnvironmentalPage';
-<<<<<<< HEAD
 import ReportsPage from './pages/ReportsPage';
-=======
 import GovernancePage from './pages/Governance/GovernancePage';
 import GamificationPage from './pages/Gamification/GamificationPage';
 
->>>>>>> fe47715afc776b80cf47a0ed379cf3164b4c3a28
 import { 
-  initialGoals, 
+  initialGoals,
   initialEmissionFactors, 
   initialProductProfiles, 
   initialCarbonTransactions 
@@ -106,20 +103,14 @@ function App() {
   let activePage = 'Dashboard';
   if (location.pathname === '/environmental') activePage = 'Environmental';
   if (location.pathname === '/social') activePage = 'Social';
-<<<<<<< HEAD
   if (location.pathname === '/reports') activePage = 'Reports';
-=======
   if (location.pathname === '/governance') activePage = 'Governance';
   if (location.pathname === '/gamification') activePage = 'Gamification';
->>>>>>> fe47715afc776b80cf47a0ed379cf3164b4c3a28
-
   const handleSetActivePage = (page) => {
     if (page === 'Dashboard') navigate('/dashboard');
     else if (page === 'Environmental') navigate('/environmental');
     else if (page === 'Social') navigate('/social');
-<<<<<<< HEAD
     else if (page === 'Reports') navigate('/reports');
-=======
     else if (page === 'Governance') navigate('/governance');
     else if (page === 'Gamification') navigate('/gamification');
   };
@@ -219,7 +210,6 @@ function App() {
 
     addNotification(`Reward Redeemed: ${employeeName} redeemed "${reward.icon} ${reward.name}" for ${reward.requiredXp} XP`);
     return { success: true };
->>>>>>> fe47715afc776b80cf47a0ed379cf3164b4c3a28
   };
 
   return (
