@@ -4,11 +4,12 @@ import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import SocialPage from './pages/SocialPage';
 import EnvironmentalPage from './pages/Environmental/EnvironmentalPage';
+import ReportsPage from './pages/ReportsPage';
 import GovernancePage from './pages/Governance/GovernancePage';
 import GamificationPage from './pages/Gamification/GamificationPage';
 
 import { 
-  initialGoals, 
+  initialGoals,
   initialEmissionFactors, 
   initialProductProfiles, 
   initialCarbonTransactions 
@@ -102,13 +103,14 @@ function App() {
   let activePage = 'Dashboard';
   if (location.pathname === '/environmental') activePage = 'Environmental';
   if (location.pathname === '/social') activePage = 'Social';
+  if (location.pathname === '/reports') activePage = 'Reports';
   if (location.pathname === '/governance') activePage = 'Governance';
   if (location.pathname === '/gamification') activePage = 'Gamification';
-
   const handleSetActivePage = (page) => {
     if (page === 'Dashboard') navigate('/dashboard');
     else if (page === 'Environmental') navigate('/environmental');
     else if (page === 'Social') navigate('/social');
+    else if (page === 'Reports') navigate('/reports');
     else if (page === 'Governance') navigate('/governance');
     else if (page === 'Gamification') navigate('/gamification');
   };
@@ -229,6 +231,7 @@ function App() {
           />
         } />
         <Route path="/social" element={<SocialPage activeTab={activeTab} setActiveTab={setActiveTab} />} />
+        <Route path="/reports" element={<ReportsPage activeTab={activeTab} />} />
         <Route path="/environmental" element={
           <EnvironmentalPage 
             activeTab={activeTab} 

@@ -97,29 +97,30 @@ WSGI_APPLICATION = 'project.wsgi.application'
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
 DATABASE_URL = os.environ.get('DATABASE_URL')
+if not DATABASE_URL:
+    DATABASE_URL = "postgresql://ecosafe_user:StrongPassword123!@localhost:5432/ecosafe"
 
-if DATABASE_URL:
-    url = urlparse.urlparse(DATABASE_URL)
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': url.path[1:],
-            'USER': url.username,
-            'PASSWORD': url.password,
-            'HOST': url.hostname,
-            'PORT': url.port or 5432,
-            'OPTIONS': {
-                'sslmode': 'require',
-            }
-        }
+url = urlparse.urlparse(DATABASE_URL)
+query_params = urlparse.parse_qs(url.query)
+ssl_mode = query_params.get('sslmode', [None])[0]
+
+options = {}
+if ssl_mode:
+    options['sslmode'] = ssl_mode
+
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': url.path[1:],
+        'USER': url.username,
+        'PASSWORD': url.password,
+        'HOST': url.hostname,
+        'PORT': url.port or 5432,
     }
-else:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
-        }
-    }
+}
+if options:
+    DATABASES['default']['OPTIONS'] = options
+
 
 
 # Password validation

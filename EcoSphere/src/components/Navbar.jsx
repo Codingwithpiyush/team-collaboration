@@ -12,6 +12,8 @@ const Navbar = ({ notifications = [], setNotifications }) => {
     pageTitle = 'Social : CSR & Employee Engagement';
   } else if (location.pathname === '/environmental') {
     pageTitle = 'Environmental';
+  } else if (location.pathname === '/reports') {
+    pageTitle = 'EcoSphere: Reports';
   } else if (location.pathname === '/governance') {
     pageTitle = 'Governance : Compliance & Policies';
   } else if (location.pathname === '/gamification') {
