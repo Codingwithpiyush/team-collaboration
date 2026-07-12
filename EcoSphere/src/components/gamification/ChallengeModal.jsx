@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { X, Upload, Flame, FileText } from 'lucide-react';
 
-const ChallengeModal = ({ isOpen, onClose, onSave, challenge, mode = 'form', onJoinSubmit }) => {
+const ChallengeModal = ({ isOpen, onClose, onSave, challenge, mode = 'form', onJoinSubmit, employees = [], categories = [] }) => {
   // 1. Challenge Form State (mode === 'form')
   const [formFields, setFormFields] = useState({
     title: '',
-    category: 'Carbon footprint',
+    categoryId: '',
     description: '',
     difficulty: 'Medium',
     xpReward: '',
@@ -18,7 +18,7 @@ const ChallengeModal = ({ isOpen, onClose, onSave, challenge, mode = 'form', onJ
 
   // 2. Join Challenge State (mode === 'join')
   const [joinFields, setJoinFields] = useState({
-    employee: 'Rahul',
+    employeeId: '',
     proofFile: null,
     remarks: ''
   });
@@ -31,7 +31,7 @@ const ChallengeModal = ({ isOpen, onClose, onSave, challenge, mode = 'form', onJ
         if (challenge) {
           setFormFields({
             title: challenge.title || '',
-            category: challenge.category || 'Carbon footprint',
+            categoryId: challenge.categoryId ? challenge.categoryId.toString() : (categories[0]?.id?.toString() || ''),
             description: challenge.description || '',
             difficulty: challenge.difficulty || 'Medium',
             xpReward: challenge.xpReward || '',
@@ -44,7 +44,7 @@ const ChallengeModal = ({ isOpen, onClose, onSave, challenge, mode = 'form', onJ
         } else {
           setFormFields({
             title: '',
-            category: 'Carbon footprint',
+            categoryId: categories[0]?.id?.toString() || '',
             description: '',
             difficulty: 'Medium',
             xpReward: '',
@@ -57,14 +57,14 @@ const ChallengeModal = ({ isOpen, onClose, onSave, challenge, mode = 'form', onJ
         }
       } else if (mode === 'join') {
         setJoinFields({
-          employee: 'Rahul',
+          employeeId: employees[0]?.id?.toString() || '',
           proofFile: null,
           remarks: ''
         });
       }
       setErrors({});
     }
-  }, [challenge, isOpen, mode]);
+  }, [challenge, isOpen, mode, employees, categories]);
 
   if (!isOpen) return null;
 
@@ -93,6 +93,7 @@ const ChallengeModal = ({ isOpen, onClose, onSave, challenge, mode = 'form', onJ
     
     const xp = parseInt(formFields.xpReward);
     if (isNaN(xp) || xp <= 0) err.xpReward = 'XP reward must be a positive number';
+    if (!formFields.categoryId) err.categoryId = 'Category selection is required';
     
     setErrors(err);
     return Object.keys(err).length === 0;
@@ -100,7 +101,7 @@ const ChallengeModal = ({ isOpen, onClose, onSave, challenge, mode = 'form', onJ
 
   const validateJoin = () => {
     const err = {};
-    if (!joinFields.employee.trim()) err.employee = 'Employee name is required';
+    if (!joinFields.employeeId) err.employeeId = 'Employee selection is required';
     if (!joinFields.proofFile) err.proofFile = 'Proof upload is required';
     
     setErrors(err);
@@ -111,10 +112,12 @@ const ChallengeModal = ({ isOpen, onClose, onSave, challenge, mode = 'form', onJ
     e.preventDefault();
     if (mode === 'form') {
       if (!validateForm()) return;
+      const catObj = categories.find(c => c.id.toString() === formFields.categoryId.toString());
       onSave({
         id: challenge ? challenge.id : 'CH-' + Date.now(),
         title: formFields.title.trim(),
-        category: formFields.category,
+        categoryId: formFields.categoryId,
+        category: catObj ? catObj.name : 'Sustainability',
         description: formFields.description.trim(),
         difficulty: formFields.difficulty,
         xpReward: parseInt(formFields.xpReward),
@@ -127,8 +130,10 @@ const ChallengeModal = ({ isOpen, onClose, onSave, challenge, mode = 'form', onJ
       });
     } else if (mode === 'join') {
       if (!validateJoin()) return;
+      const empObj = employees.find(e => e.id.toString() === joinFields.employeeId.toString());
       onJoinSubmit({
-        employee: joinFields.employee,
+        employeeId: joinFields.employeeId,
+        employeeName: empObj ? empObj.name : 'Unknown',
         challenge: challenge.title,
         proof: joinFields.proofFile,
         remarks: joinFields.remarks.trim(),
@@ -138,10 +143,8 @@ const ChallengeModal = ({ isOpen, onClose, onSave, challenge, mode = 'form', onJ
     }
   };
 
-  const categories = ['Carbon footprint', 'Waste Management', 'Energy Conservation', 'Product ESG', 'CSR Activity'];
   const difficulties = ['Easy', 'Medium', 'Hard'];
   const statuses = ['Draft', 'Active', 'Under Review', 'Completed', 'Archived'];
-  const employees = ['Rahul', 'Sneha', 'Aditi Rao', 'Priya', 'Amit', 'Vikram', 'Maya'];
 
   const labelStyle = { display: 'block', fontSize: '14px', fontWeight: 600, color: '#334155', marginBottom: '6px' };
   const inputStyle = (hasErr) => ({
@@ -204,9 +207,11 @@ const ChallengeModal = ({ isOpen, onClose, onSave, challenge, mode = 'form', onJ
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                 <div>
                   <label style={labelStyle}>Category</label>
-                  <select name="category" value={formFields.category} onChange={handleFormChange} style={inputStyle(false)}>
-                    {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                  <select name="categoryId" value={formFields.categoryId} onChange={handleFormChange} style={inputStyle(errors.categoryId)}>
+                    <option value="" disabled>Select category...</option>
+                    {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
+                  {errors.categoryId && <p style={{ fontSize: '12px', color: '#ef4444', marginTop: '4px' }}>{errors.categoryId}</p>}
                 </div>
                 <div>
                   <label style={labelStyle}>Difficulty</label>
@@ -279,9 +284,11 @@ const ChallengeModal = ({ isOpen, onClose, onSave, challenge, mode = 'form', onJ
             <>
               <div>
                 <label style={labelStyle}>Select Employee</label>
-                <select name="employee" value={joinFields.employee} onChange={handleJoinChange} style={inputStyle(false)}>
-                  {employees.map(e => <option key={e} value={e}>{e}</option>)}
+                <select name="employeeId" value={joinFields.employeeId} onChange={handleJoinChange} style={inputStyle(errors.employeeId)}>
+                  <option value="" disabled>Select Employee</option>
+                  {employees.map(e => <option key={e.id} value={e.id}>{e.name} ({e.designation})</option>)}
                 </select>
+                {errors.employeeId && <p style={{ fontSize: '12px', color: '#ef4444', marginTop: '4px' }}>{errors.employeeId}</p>}
               </div>
 
               <div>

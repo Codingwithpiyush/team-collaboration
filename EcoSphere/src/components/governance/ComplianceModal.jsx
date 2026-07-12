@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 
-const ComplianceModal = ({ isOpen, onClose, onSave, issue }) => {
+const ComplianceModal = ({ isOpen, onClose, onSave, issue, employees = [], departments = [] }) => {
   const [formData, setFormData] = useState({
     issue: '',
     description: '',
     severity: 'Medium',
-    department: 'Manufacturing',
+    department: '',
     owner: '',
     dueDate: new Date().toISOString().split('T')[0],
     status: 'Open'
@@ -20,24 +20,24 @@ const ComplianceModal = ({ isOpen, onClose, onSave, issue }) => {
         issue: issue.issue || '',
         description: issue.description || '',
         severity: issue.severity || 'Medium',
-        department: issue.department || 'Manufacturing',
-        owner: issue.owner || '',
+        department: issue.departmentId || issue.department || '',
+        owner: issue.ownerId || issue.owner || '',
         dueDate: issue.dueDate || '',
-        status: issue.status === 'Overdue' ? 'Open' : (issue.status || 'Open') // Overdue resolves to Open in forms
+        status: issue.status === 'Overdue' ? 'Open' : (issue.status || 'Open')
       });
     } else {
       setFormData({
         issue: '',
         description: '',
         severity: 'Medium',
-        department: 'Manufacturing',
-        owner: '',
+        department: departments && departments.length > 0 ? departments[0].id : '',
+        owner: employees && employees.length > 0 ? employees[0].id : '',
         dueDate: new Date().toISOString().split('T')[0],
         status: 'Open'
       });
     }
     setErrors({});
-  }, [issue, isOpen]);
+  }, [issue, isOpen, employees, departments]);
 
   if (!isOpen) return null;
 
@@ -49,7 +49,8 @@ const ComplianceModal = ({ isOpen, onClose, onSave, issue }) => {
   const validate = () => {
     const newErrors = {};
     if (!formData.issue.trim()) newErrors.issue = 'Issue Title is required';
-    if (!formData.owner.trim()) newErrors.owner = 'Assignee/Owner is required';
+    if (!formData.owner) newErrors.owner = 'Owner / Assignee is required';
+    if (!formData.department) newErrors.department = 'Department is required';
     if (!formData.dueDate) newErrors.dueDate = 'Due Date is required';
     
     setErrors(newErrors);
@@ -61,18 +62,18 @@ const ComplianceModal = ({ isOpen, onClose, onSave, issue }) => {
     if (!validate()) return;
 
     onSave({
-      id: issue ? issue.id : 'COMP-' + Date.now(),
+      id: issue ? issue.id : undefined,
       issue: formData.issue.trim(),
       description: formData.description.trim(),
       severity: formData.severity,
-      department: formData.department,
-      owner: formData.owner.trim(),
+      department: isNaN(parseInt(formData.department)) ? formData.department : parseInt(formData.department),
+      owner: isNaN(parseInt(formData.owner)) ? formData.owner : parseInt(formData.owner),
       dueDate: formData.dueDate,
       status: formData.status
     });
   };
 
-  const departments = ['Manufacturing', 'Procurement', 'HR', 'IT', 'Logistics', 'Corporate', 'R&D', 'Sales'];
+  const defaultDepts = ['Manufacturing', 'Procurement', 'HR', 'IT', 'Logistics', 'Corporate', 'R&D', 'Sales'];
   const severities = ['High', 'Medium', 'Low'];
   const statuses = ['Open', 'In Progress', 'Resolved'];
 
@@ -85,7 +86,7 @@ const ComplianceModal = ({ isOpen, onClose, onSave, issue }) => {
   });
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifycontent: 'center', alignContent: 'center', justifyContent: 'center' }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div 
         style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(15,23,42,0.4)', backdropFilter: 'blur(4px)' }}
         onClick={onClose}
@@ -132,25 +133,38 @@ const ComplianceModal = ({ isOpen, onClose, onSave, issue }) => {
             </div>
             <div>
               <label style={labelStyle}>Department</label>
-              <select name="department" value={formData.department} onChange={handleChange} style={inputStyle(false)}>
-                {departments.map(d => <option key={d} value={d}>{d}</option>)}
-              </select>
+              {departments && departments.length > 0 ? (
+                <select name="department" value={formData.department} onChange={handleChange} style={inputStyle(errors.department)}>
+                  <option value="">Select Department</option>
+                  {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                </select>
+              ) : (
+                <select name="department" value={formData.department} onChange={handleChange} style={inputStyle(errors.department)}>
+                  {defaultDepts.map(d => <option key={d} value={d}>{d}</option>)}
+                </select>
+              )}
+              {errors.department && <p style={{ fontSize: '12px', color: '#ef4444', marginTop: '4px', marginBottom: 0 }}>{errors.department}</p>}
             </div>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             <div>
               <label style={labelStyle}>Owner / Assignee</label>
-              <input 
-                type="text" 
-                name="owner"
-                value={formData.owner}
-                onChange={handleChange}
-                placeholder="e.g. Rahul"
-                style={inputStyle(errors.owner)}
-                onFocus={e => { e.target.style.borderColor = '#8b5cf6'; e.target.style.boxShadow = '0 0 0 3px rgba(139,92,246,0.1)'; }}
-                onBlur={e => { e.target.style.borderColor = errors.owner ? '#fca5a5' : '#e2e8f0'; e.target.style.boxShadow = 'none'; }}
-              />
+              {employees && employees.length > 0 ? (
+                <select name="owner" value={formData.owner} onChange={handleChange} style={inputStyle(errors.owner)}>
+                  <option value="">Select Assignee</option>
+                  {employees.map(emp => <option key={emp.id} value={emp.id}>{emp.name}</option>)}
+                </select>
+              ) : (
+                <input 
+                  type="text" 
+                  name="owner"
+                  value={formData.owner}
+                  onChange={handleChange}
+                  placeholder="e.g. Rahul"
+                  style={inputStyle(errors.owner)}
+                />
+              )}
               {errors.owner && <p style={{ fontSize: '12px', color: '#ef4444', marginTop: '4px', marginBottom: 0 }}>{errors.owner}</p>}
             </div>
             <div>
@@ -194,8 +208,6 @@ const ComplianceModal = ({ isOpen, onClose, onSave, issue }) => {
               type="button" 
               onClick={onClose} 
               style={{ padding: '10px 20px', borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '14px', fontWeight: 600, color: '#475569', backgroundColor: '#fff', cursor: 'pointer' }}
-              onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f8fafc'}
-              onMouseLeave={e => e.currentTarget.style.backgroundColor = '#fff'}
             >
               Cancel
             </button>
@@ -207,8 +219,6 @@ const ComplianceModal = ({ isOpen, onClose, onSave, issue }) => {
                 backgroundColor: '#7c3aed', cursor: 'pointer',
                 boxShadow: '0 4px 6px -1px rgba(124,58,237,0.2)'
               }}
-              onMouseEnter={e => e.currentTarget.style.backgroundColor = '#6d28d9'}
-              onMouseLeave={e => e.currentTarget.style.backgroundColor = '#7c3aed'}
             >
               {issue ? 'Save Changes' : 'Create Issue'}
             </button>

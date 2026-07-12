@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { Plus, Edit, Trash2, Download, Search, Eye, AlertTriangle, Calendar, X, Filter } from 'lucide-react';
 import AuditModal from './AuditModal';
+import { BASE_API_URL } from '../../config';
 
-const AuditTable = ({ audits, setAudits, addNotification }) => {
+const AuditTable = ({ audits, setAudits, addNotification, employees = [], departments = [], refresh }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDept, setSelectedDept] = useState('All');
   const [selectedStatus, setSelectedStatus] = useState('All');
@@ -21,8 +22,8 @@ const AuditTable = ({ audits, setAudits, addNotification }) => {
   };
 
   // Filter lists based on existing data
-  const departments = useMemo(() => {
-    const depts = new Set(audits.map(a => a.department));
+  const deptList = useMemo(() => {
+    const depts = new Set(audits.map(a => a.department).filter(Boolean));
     return ['All', ...Array.from(depts)];
   }, [audits]);
 
@@ -34,8 +35,8 @@ const AuditTable = ({ audits, setAudits, addNotification }) => {
       const term = searchTerm.toLowerCase();
       const matchesSearch = 
         audit.title.toLowerCase().includes(term) ||
-        audit.auditor.toLowerCase().includes(term) ||
-        audit.findings.toLowerCase().includes(term);
+        (audit.auditor && audit.auditor.toLowerCase().includes(term)) ||
+        (audit.findings && audit.findings.toLowerCase().includes(term));
 
       const matchesDept = selectedDept === 'All' || audit.department === selectedDept;
       const matchesStatus = selectedStatus === 'All' || audit.status === selectedStatus;
@@ -81,34 +82,87 @@ const AuditTable = ({ audits, setAudits, addNotification }) => {
     setDeletingAudit({ id: 'BULK', title: `${selectedIds.length} selected audits`, count: selectedIds.length });
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (!deletingAudit) return;
 
-    if (deletingAudit.id === 'BULK') {
-      setAudits(prev => prev.filter(a => !selectedIds.includes(a.id)));
-      showToast(`Deleted ${deletingAudit.count} audit records`);
-      setSelectedIds([]);
-    } else {
-      setAudits(prev => prev.filter(a => a.id !== deletingAudit.id));
-      showToast(`Deleted audit "${deletingAudit.title}"`);
-      setSelectedIds(prev => prev.filter(id => id !== deletingAudit.id));
+    try {
+      if (deletingAudit.id === 'BULK') {
+        await Promise.all(
+          selectedIds.map(id =>
+            fetch(`${BASE_API_URL}/api/governance/audits/${id}/`, { method: 'DELETE' })
+          )
+        );
+        showToast(`Deleted ${deletingAudit.count} audit records`);
+        setSelectedIds([]);
+      } else {
+        await fetch(`${BASE_API_URL}/api/governance/audits/${deletingAudit.id}/`, { method: 'DELETE' });
+        showToast(`Deleted audit "${deletingAudit.title}"`);
+        setSelectedIds(prev => prev.filter(id => id !== deletingAudit.id));
+      }
+      if (refresh) refresh();
+    } catch (err) {
+      console.error(err);
+      showToast("Failed to delete audit record(s)");
     }
     setDeletingAudit(null);
   };
 
-  const handleSaveAudit = (auditData) => {
-    if (editingAudit) {
-      // Edit
-      setAudits(prev => prev.map(a => a.id === auditData.id ? auditData : a));
-      showToast(`Updated audit "${auditData.title}"`);
-      if (auditData.status === 'Completed' && editingAudit.status !== 'Completed') {
-        addNotification(`Audit completed: ${auditData.title} conducted by ${auditData.auditor}`);
+  const mapStatusToBackend = (status) => {
+    const map = {
+      'Completed': 'completed',
+      'Under Review': 'in_progress',
+      'Scheduled': 'draft',
+      'Cancelled': 'cancelled'
+    };
+    return map[status] || 'draft';
+  };
+
+  const handleSaveAudit = async (auditData) => {
+    const payload = {
+      title: auditData.title,
+      scope: auditData.description,
+      department: auditData.department,
+      auditor: auditData.auditor,
+      audit_date: auditData.date,
+      score: auditData.score,
+      status: mapStatusToBackend(auditData.status),
+      findings: auditData.findings
+    };
+
+    try {
+      if (editingAudit) {
+        const res = await fetch(`${BASE_API_URL}/api/governance/audits/${editingAudit.id}/`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          showToast(`Updated audit "${auditData.title}"`);
+          if (auditData.status === 'Completed' && editingAudit.status !== 'Completed') {
+            addNotification(`Audit completed: ${auditData.title} conducted by ${auditData.auditorName || auditData.auditor}`);
+          }
+        } else {
+          const errData = await res.json();
+          showToast(`Failed: ${JSON.stringify(errData)}`);
+        }
+      } else {
+        const res = await fetch(`${BASE_API_URL}/api/governance/audits/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          showToast(`Scheduled new audit "${auditData.title}"`);
+          addNotification(`New audit scheduled: ${auditData.title}`);
+        } else {
+          const errData = await res.json();
+          showToast(`Failed: ${JSON.stringify(errData)}`);
+        }
       }
-    } else {
-      // Create
-      setAudits(prev => [auditData, ...prev]);
-      showToast(`Scheduled new audit "${auditData.title}"`);
-      addNotification(`New audit scheduled: ${auditData.title} under ${auditData.department} dept.`);
+      if (refresh) refresh();
+    } catch (err) {
+      console.error(err);
+      showToast("Error processing audit save request");
     }
     setIsModalOpen(false);
     setEditingAudit(null);
@@ -264,7 +318,7 @@ const AuditTable = ({ audits, setAudits, addNotification }) => {
               onChange={e => setSelectedDept(e.target.value)}
               style={{ fontSize: '14px', fontWeight: 600, color: '#475569', backgroundColor: 'transparent', border: 'none', outline: 'none', cursor: 'pointer' }}
             >
-              {departments.map(d => <option key={d} value={d}>{d === 'All' ? 'All Depts' : d}</option>)}
+              {deptList.map(d => <option key={d} value={d}>{d === 'All' ? 'All Depts' : d}</option>)}
             </select>
           </div>
 
@@ -436,6 +490,8 @@ const AuditTable = ({ audits, setAudits, addNotification }) => {
         onClose={() => { setIsModalOpen(false); setEditingAudit(null); }}
         onSave={handleSaveAudit}
         audit={editingAudit}
+        employees={employees}
+        departments={departments}
       />
 
       {/* Details View Modal */}

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Upload, FileText } from 'lucide-react';
 
-const PolicyModal = ({ isOpen, onClose, onSave, policy }) => {
+const PolicyModal = ({ isOpen, onClose, onSave, policy, employees = [] }) => {
   const [formData, setFormData] = useState({
     name: '',
     category: 'Sustainability',
@@ -10,6 +10,7 @@ const PolicyModal = ({ isOpen, onClose, onSave, policy }) => {
     effectiveDate: new Date().toISOString().split('T')[0],
     description: '',
     status: 'Draft',
+    owner: '',
     pdfFile: null
   });
 
@@ -25,6 +26,7 @@ const PolicyModal = ({ isOpen, onClose, onSave, policy }) => {
         effectiveDate: policy.effectiveDate || '',
         description: policy.description || '',
         status: policy.status || 'Draft',
+        owner: policy.owner || (employees && employees.length > 0 ? employees[0].id : ''),
         pdfFile: policy.pdfFile || null
       });
     } else {
@@ -36,11 +38,12 @@ const PolicyModal = ({ isOpen, onClose, onSave, policy }) => {
         effectiveDate: new Date().toISOString().split('T')[0],
         description: '',
         status: 'Draft',
+        owner: employees && employees.length > 0 ? employees[0].id : '',
         pdfFile: null
       });
     }
     setErrors({});
-  }, [policy, isOpen]);
+  }, [policy, isOpen, employees]);
 
   if (!isOpen) return null;
 
@@ -50,8 +53,9 @@ const PolicyModal = ({ isOpen, onClose, onSave, policy }) => {
   };
 
   const handleFileChange = (e) => {
-    if (e.target.files && e.target.files[0]) {
-      setFormData(prev => ({ ...prev, pdfFile: e.target.files[0].name }));
+    const file = e.target.files[0];
+    if (file) {
+      setFormData(prev => ({ ...prev, pdfFile: file.name }));
     }
   };
 
@@ -60,6 +64,7 @@ const PolicyModal = ({ isOpen, onClose, onSave, policy }) => {
     if (!formData.name.trim()) newErrors.name = 'Policy Name is required';
     if (!formData.version.trim()) newErrors.version = 'Version is required';
     if (!formData.effectiveDate) newErrors.effectiveDate = 'Effective Date is required';
+    if (!formData.owner) newErrors.owner = 'Policy Owner is required';
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -70,7 +75,7 @@ const PolicyModal = ({ isOpen, onClose, onSave, policy }) => {
     if (!validate()) return;
 
     onSave({
-      id: policy ? policy.id : 'POL-' + Date.now(),
+      id: policy ? policy.id : undefined,
       name: formData.name.trim(),
       category: formData.category,
       department: formData.department,
@@ -78,6 +83,7 @@ const PolicyModal = ({ isOpen, onClose, onSave, policy }) => {
       effectiveDate: formData.effectiveDate,
       description: formData.description.trim(),
       status: formData.status,
+      owner: parseInt(formData.owner),
       pdfFile: formData.pdfFile
     });
   };
@@ -96,11 +102,13 @@ const PolicyModal = ({ isOpen, onClose, onSave, policy }) => {
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      {/* Backdrop */}
       <div 
         style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(15,23,42,0.4)', backdropFilter: 'blur(4px)' }}
         onClick={onClose}
       ></div>
 
+      {/* Modal Box */}
       <div style={{
         backgroundColor: '#ffffff', borderRadius: '16px', width: '100%', maxWidth: '540px',
         padding: '24px', boxShadow: '0 20px 60px rgba(0,0,0,0.15)', border: '1px solid #e2e8f0',
@@ -178,11 +186,23 @@ const PolicyModal = ({ isOpen, onClose, onSave, policy }) => {
             </div>
           </div>
 
-          <div>
-            <label style={labelStyle}>Policy Status</label>
-            <select name="status" value={formData.status} onChange={handleChange} style={inputStyle(false)}>
-              {statuses.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            <div>
+              <label style={labelStyle}>Policy Status</label>
+              <select name="status" value={formData.status} onChange={handleChange} style={inputStyle(false)}>
+                {statuses.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={labelStyle}>Policy Owner</label>
+              <select name="owner" value={formData.owner} onChange={handleChange} style={inputStyle(errors.owner)}>
+                <option value="">Select Owner</option>
+                {employees.map(emp => (
+                  <option key={emp.id} value={emp.id}>{emp.name} ({emp.department_name})</option>
+                ))}
+              </select>
+              {errors.owner && <p style={{ fontSize: '12px', color: '#ef4444', marginTop: '4px', marginBottom: 0 }}>{errors.owner}</p>}
+            </div>
           </div>
 
           <div>
@@ -221,9 +241,8 @@ const PolicyModal = ({ isOpen, onClose, onSave, policy }) => {
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', color: '#64748b' }}>
-                  <Upload size={24} style={{ color: '#94a3b8' }} />
-                  <span style={{ fontSize: '13px', fontWeight: 600 }}>Drag and drop policy PDF or click to browse</span>
-                  <span style={{ fontSize: '11px', color: '#94a3b8' }}>PDF format only, max size 10MB</span>
+                  <Upload size={24} />
+                  <span style={{ fontSize: '13px', fontWeight: 500 }}>Click or drag a PDF file to upload</span>
                 </div>
               )}
             </div>
@@ -250,7 +269,7 @@ const PolicyModal = ({ isOpen, onClose, onSave, policy }) => {
               onMouseEnter={e => e.currentTarget.style.backgroundColor = '#6d28d9'}
               onMouseLeave={e => e.currentTarget.style.backgroundColor = '#7c3aed'}
             >
-              {policy ? 'Save Changes' : 'Save Policy'}
+              {policy ? 'Save Changes' : 'Create Policy'}
             </button>
           </div>
         </form>

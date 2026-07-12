@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { Plus, Edit, Trash2, Download, Search, Eye, AlertTriangle, FileText, X } from 'lucide-react';
 import PolicyModal from './PolicyModal';
+import { BASE_API_URL } from '../../config';
 
-const PolicyTable = ({ policies, setPolicies, addNotification }) => {
+const PolicyTable = ({ policies, setPolicies, addNotification, employees = [], refresh }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedIds, setSelectedIds] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -23,9 +24,9 @@ const PolicyTable = ({ policies, setPolicies, addNotification }) => {
       const term = searchTerm.toLowerCase();
       return (
         policy.name.toLowerCase().includes(term) ||
-        policy.category.toLowerCase().includes(term) ||
-        policy.department.toLowerCase().includes(term) ||
-        policy.status.toLowerCase().includes(term)
+        (policy.category && policy.category.toLowerCase().includes(term)) ||
+        (policy.department && policy.department.toLowerCase().includes(term)) ||
+        (policy.status && policy.status.toLowerCase().includes(term))
       );
     });
   }, [policies, searchTerm]);
@@ -67,29 +68,72 @@ const PolicyTable = ({ policies, setPolicies, addNotification }) => {
     setDeletingPolicy({ id: 'BULK', name: `${selectedIds.length} selected policies`, count: selectedIds.length });
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (!deletingPolicy) return;
 
-    if (deletingPolicy.id === 'BULK') {
-      setPolicies(prev => prev.filter(p => !selectedIds.includes(p.id)));
-      showToast(`Deleted ${deletingPolicy.count} policies`);
-      setSelectedIds([]);
-    } else {
-      setPolicies(prev => prev.filter(p => p.id !== deletingPolicy.id));
-      showToast(`Deleted policy "${deletingPolicy.name}"`);
-      setSelectedIds(prev => prev.filter(id => id !== deletingPolicy.id));
+    try {
+      if (deletingPolicy.id === 'BULK') {
+        await Promise.all(
+          selectedIds.map(id =>
+            fetch(`${BASE_API_URL}/api/governance/policies/${id}/`, { method: 'DELETE' })
+          )
+        );
+        showToast(`Deleted ${deletingPolicy.count} policies`);
+        setSelectedIds([]);
+      } else {
+        await fetch(`${BASE_API_URL}/api/governance/policies/${deletingPolicy.id}/`, { method: 'DELETE' });
+        showToast(`Deleted policy "${deletingPolicy.name}"`);
+        setSelectedIds(prev => prev.filter(id => id !== deletingPolicy.id));
+      }
+      if (refresh) refresh();
+    } catch (err) {
+      console.error(err);
+      showToast("Failed to delete policy record(s)");
     }
     setDeletingPolicy(null);
   };
 
-  const handleSavePolicy = (policyData) => {
-    if (editingPolicy) {
-      setPolicies(prev => prev.map(p => p.id === policyData.id ? policyData : p));
-      showToast(`Updated policy "${policyData.name}"`);
-    } else {
-      setPolicies(prev => [policyData, ...prev]);
-      showToast(`Added new policy "${policyData.name}"`);
-      addNotification(`New corporate policy drafted: ${policyData.name} (v${policyData.version})`);
+  const handleSavePolicy = async (policyData) => {
+    const payload = {
+      title: policyData.name,
+      code: policyData.code || 'POL-' + policyData.name.toUpperCase().replace(/[^A-Z0-9]/g, '-').slice(0, 15) + '-' + Math.floor(100 + Math.random() * 900),
+      description: policyData.description,
+      version: policyData.version,
+      status: policyData.status.toLowerCase(),
+      owner: policyData.owner
+    };
+
+    try {
+      if (editingPolicy) {
+        const res = await fetch(`${BASE_API_URL}/api/governance/policies/${editingPolicy.id}/`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          showToast(`Updated policy "${policyData.name}"`);
+        } else {
+          const errData = await res.json();
+          showToast(`Failed: ${JSON.stringify(errData)}`);
+        }
+      } else {
+        const res = await fetch(`${BASE_API_URL}/api/governance/policies/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          showToast(`Added new policy "${policyData.name}"`);
+          addNotification(`New corporate policy drafted: ${policyData.name} (v${policyData.version})`);
+        } else {
+          const errData = await res.json();
+          showToast(`Failed: ${JSON.stringify(errData)}`);
+        }
+      }
+      if (refresh) refresh();
+    } catch (err) {
+      console.error(err);
+      showToast("Error processing policy save request");
     }
     setIsModalOpen(false);
     setEditingPolicy(null);
@@ -388,6 +432,7 @@ const PolicyTable = ({ policies, setPolicies, addNotification }) => {
         onClose={() => { setIsModalOpen(false); setEditingPolicy(null); }}
         onSave={handleSavePolicy}
         policy={editingPolicy}
+        employees={employees}
       />
 
       {/* Details View Modal */}

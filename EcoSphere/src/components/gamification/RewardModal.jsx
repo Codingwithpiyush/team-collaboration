@@ -1,55 +1,76 @@
 import React, { useState, useEffect } from 'react';
 import { X, Flame, AlertCircle, CheckCircle2 } from 'lucide-react';
 
-const RewardModal = ({ isOpen, onClose, reward, leaderboard, onConfirm }) => {
-  const [selectedEmployee, setSelectedEmployee] = useState('Rahul');
+const RewardModal = ({ isOpen, onClose, reward, leaderboard, onConfirm, employees = [] }) => {
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
   const [employeeXp, setEmployeeXp] = useState(0);
   const [errorMsg, setErrorMsg] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
+  const [isRedeeming, setIsRedeeming] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
-      setSelectedEmployee('Rahul');
+      setSelectedEmployeeId(employees[0]?.id?.toString() || '');
       setErrorMsg('');
       setIsSuccess(false);
+      setIsRedeeming(false);
     }
-  }, [isOpen]);
+  }, [isOpen, employees]);
 
   // Fetch points whenever employee selection changes
   useEffect(() => {
-    if (isOpen && selectedEmployee) {
-      const emp = leaderboard.find(l => l.name === selectedEmployee && l.type === 'Employee');
-      setEmployeeXp(emp ? emp.xp : 0);
+    if (isOpen && selectedEmployeeId && employees.length > 0) {
+      const empObj = employees.find(e => e.id.toString() === selectedEmployeeId.toString());
+      if (empObj) {
+        const emp = leaderboard.find(l => l.name === empObj.name && l.type === 'Employee');
+        setEmployeeXp(emp ? emp.xp : 0);
+      } else {
+        setEmployeeXp(0);
+      }
       setErrorMsg('');
     }
-  }, [selectedEmployee, leaderboard, isOpen]);
+  }, [selectedEmployeeId, leaderboard, isOpen, employees]);
 
   if (!isOpen || !reward) return null;
 
   const hasEnoughXp = employeeXp >= reward.requiredXp;
 
-  const handleRedeem = (e) => {
+  const handleRedeem = async (e) => {
     e.preventDefault();
+    if (!selectedEmployeeId) {
+      setErrorMsg('Please select an employee.');
+      return;
+    }
     if (!hasEnoughXp) {
       setErrorMsg(`Not Enough XP. Employee has ${employeeXp} XP, but reward requires ${reward.requiredXp} XP.`);
       return;
     }
 
-    const res = onConfirm(selectedEmployee, reward.id);
-    if (res && !res.success) {
-      setErrorMsg(res.error);
-    } else {
-      setIsSuccess(true);
+    setIsRedeeming(true);
+    setErrorMsg('');
+    try {
+      const res = await onConfirm(selectedEmployeeId, reward.id);
+      if (res && !res.success) {
+        setErrorMsg(res.error || 'Failed to redeem reward.');
+      } else {
+        setIsSuccess(true);
+      }
+    } catch (err) {
+      setErrorMsg('Failed to process reward redemption.');
+    } finally {
+      setIsRedeeming(false);
     }
   };
 
-  const employees = ['Rahul', 'Sneha', 'Aditi Rao', 'Priya', 'Amit', 'Vikram', 'Maya'];
   const labelStyle = { display: 'block', fontSize: '14px', fontWeight: 600, color: '#334155', marginBottom: '6px' };
   const inputStyle = {
     width: '100%', padding: '10px 16px', borderRadius: '12px',
     border: '1px solid #e2e8f0', backgroundColor: '#f8fafc', fontSize: '14px',
     outline: 'none', boxSizing: 'border-box'
   };
+
+  const empObj = employees.find(e => e.id.toString() === selectedEmployeeId.toString());
+  const selectedEmployeeName = empObj ? empObj.name : '';
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -88,11 +109,14 @@ const RewardModal = ({ isOpen, onClose, reward, leaderboard, onConfirm }) => {
               <div>
                 <label style={labelStyle}>Select Employee Profile</label>
                 <select 
-                  value={selectedEmployee} 
-                  onChange={e => setSelectedEmployee(e.target.value)}
+                  value={selectedEmployeeId} 
+                  onChange={e => setSelectedEmployeeId(e.target.value)}
                   style={inputStyle}
                 >
-                  {employees.map(emp => <option key={emp} value={emp}>{emp}</option>)}
+                  <option value="" disabled>Select Employee</option>
+                  {employees.map(emp => (
+                    <option key={emp.id} value={emp.id}>{emp.name} ({emp.designation})</option>
+                  ))}
                 </select>
               </div>
 
@@ -115,36 +139,38 @@ const RewardModal = ({ isOpen, onClose, reward, leaderboard, onConfirm }) => {
                 <button 
                   type="button" 
                   onClick={onClose}
+                  disabled={isRedeeming}
                   style={{ padding: '10px 18px', borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '14px', fontWeight: 600, color: '#475569', backgroundColor: '#fff', cursor: 'pointer' }}
                 >
                   Cancel
                 </button>
                 <button 
                   type="submit"
+                  disabled={isRedeeming}
                   style={{
                     padding: '10px 18px', borderRadius: '12px', border: 'none',
                     fontSize: '14px', fontWeight: 600, color: '#ffffff',
-                    backgroundColor: '#ea580c', cursor: 'pointer',
+                    backgroundColor: '#ea580c', cursor: isRedeeming ? '#fdba74' : 'pointer',
                     boxShadow: '0 4px 6px -1px rgba(234,88,12,0.2)'
                   }}
-                  onMouseEnter={e => e.currentTarget.style.backgroundColor = '#d97706'}
-                  onMouseLeave={e => e.currentTarget.style.backgroundColor = '#ea580c'}
+                  onMouseEnter={e => { if(!isRedeeming) e.currentTarget.style.backgroundColor = '#d97706'; }}
+                  onMouseLeave={e => { if(!isRedeeming) e.currentTarget.style.backgroundColor = '#ea580c'; }}
                 >
-                  Confirm Redemption
+                  {isRedeeming ? 'Redeeming...' : 'Confirm Redemption'}
                 </button>
               </div>
             </form>
           </>
         ) : (
           <div style={{ textAlign: 'center', padding: '12px 0' }}>
-            <div style={{ width: '48px', height: '48px', borderRadius: '50%', backgroundColor: '#ecfdf5', color: '#10b981', display: 'inline-flex', alignItems: 'center', justifycontent: 'center', justifyContent: 'center', marginBottom: '16px' }}>
+            <div style={{ width: '48px', height: '48px', borderRadius: '50%', backgroundColor: '#ecfdf5', color: '#10b981', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px' }}>
               <CheckCircle2 size={32} />
             </div>
             <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#1e293b', margin: '0 0 8px 0' }}>
               Redemption Successful!
             </h3>
             <p style={{ fontSize: '14px', color: '#64748b', margin: '0 0 24px 0', lineHeight: 1.5 }}>
-              Voucher code has been generated and dispatched to <strong>{selectedEmployee}</strong>'s registered email address.
+              Voucher code has been generated and dispatched to <strong>{selectedEmployeeName}</strong>'s registered email address.
             </p>
             <button
               onClick={onClose}
