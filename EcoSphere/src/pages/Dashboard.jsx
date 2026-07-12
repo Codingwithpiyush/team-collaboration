@@ -6,7 +6,7 @@ import RecentActivity from '../components/RecentActivity';
 import QuickActions from '../components/QuickActions';
 import { Leaf, Users, Briefcase, Activity } from 'lucide-react';
 
-const Dashboard = () => {
+const Dashboard = ({ environmentalScore }) => {
   return (
     <div className="space-y-6">
       <div>
@@ -18,7 +18,7 @@ const Dashboard = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <ScoreCard 
           title="Environmental Score" 
-          score={82} 
+          score={environmentalScore !== undefined ? environmentalScore : 82} 
           total={100} 
           subtitle="Top 15% in Industry"
           icon={Leaf}
