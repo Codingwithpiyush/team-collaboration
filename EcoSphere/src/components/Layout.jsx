@@ -15,6 +15,8 @@ const Layout = ({ children, activePage, setActivePage, activeTab, setActiveTab, 
         <Navbar 
           notifications={notifications}
           setNotifications={setNotifications}
+          setActivePage={setActivePage}
+          setActiveTab={setActiveTab}
         />
         <main className="flex-1 overflow-x-hidden overflow-y-auto bg-[#f8fafc] p-8">
           {children}

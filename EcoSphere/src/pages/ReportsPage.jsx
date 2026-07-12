@@ -46,13 +46,14 @@ const ReportsPageContent = ({ activeTab, setActiveTab }) => {
       <ReportAnalytics />
 
       {/* Main Content Area based on Tab */}
+      {/* Main Content Area based on Tab */}
       {activeTab !== 'Custom Builder' && activeTab !== 'Custom Report Builder' ? (
         <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            <div className="lg:col-span-1 md:col-span-3">
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+            <div className="xl:col-span-4 2xl:col-span-3">
               <ExecutiveSummaryCard />
             </div>
-            <div className="lg:col-span-3 md:col-span-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="xl:col-span-8 2xl:col-span-9 grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6">
               {reportCardsData
                 .filter(report => {
                   if (activeTab === 'Environmental') return report.type === 'environmental';
@@ -80,14 +81,12 @@ const ReportsPageContent = ({ activeTab, setActiveTab }) => {
             </div>
           </div>
           
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            <div className="lg:col-span-6 xl:col-span-7">
+          <div className="flex flex-col xl:flex-row gap-6">
+            <div className="w-full xl:w-7/12 2xl:w-8/12">
               <ReportPreview />
             </div>
-            <div className="lg:col-span-3 xl:col-span-3">
+            <div className="w-full xl:w-5/12 2xl:w-4/12 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-1 gap-6">
               <AIInsights />
-            </div>
-            <div className="lg:col-span-3 xl:col-span-2">
               <ScheduleReportCard />
             </div>
           </div>

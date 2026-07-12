@@ -1,11 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Bell, Search, X, Check, Trash2 } from 'lucide-react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
-const Navbar = ({ notifications = [], setNotifications }) => {
+const Navbar = ({ notifications = [], setNotifications, setActivePage, setActiveTab }) => {
   const location = useLocation();
+  const navigate = useNavigate();
   const [showDropdown, setShowDropdown] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showSearchResults, setShowSearchResults] = useState(false);
   const dropdownRef = useRef(null);
+  const searchRef = useRef(null);
   
   let pageTitle = 'EcoSphere Dashboard';
   if (location.pathname === '/social') {
@@ -18,14 +22,65 @@ const Navbar = ({ notifications = [], setNotifications }) => {
     pageTitle = 'Governance : Compliance & Policies';
   } else if (location.pathname === '/gamification') {
     pageTitle = 'Gamification : Employee Engagement';
+  } else if (location.pathname === '/settings') {
+    pageTitle = 'EcoSphere: Settings';
   }
 
   const unreadCount = notifications.filter(n => n.unread).length;
 
+  // All searchable items mapped to navigation targets
+  const searchableItems = [
+    { label: 'Dashboard', page: 'Dashboard', path: '/dashboard', tab: null },
+    { label: 'Environmental Goals', page: 'Environmental', path: '/environmental', tab: 'Environmental Goals' },
+    { label: 'Emission Factors', page: 'Environmental', path: '/environmental', tab: 'Emission Factors' },
+    { label: 'Product ESG Profiles', page: 'Environmental', path: '/environmental', tab: 'Product ESG Profiles' },
+    { label: 'Carbon Transactions', page: 'Environmental', path: '/environmental', tab: 'Carbon Transactions' },
+    { label: 'CSR Activities', page: 'Social', path: '/social', tab: 'CSR Activities' },
+    { label: 'Employee Participation', page: 'Social', path: '/social', tab: 'Employee Participation' },
+    { label: 'Diversity Dashboard', page: 'Social', path: '/social', tab: 'Diversity Dashboard' },
+    { label: 'Policies', page: 'Governance', path: '/governance', tab: 'Policies' },
+    { label: 'Policy Acknowledgements', page: 'Governance', path: '/governance', tab: 'Policy Acknowledgements' },
+    { label: 'Audits', page: 'Governance', path: '/governance', tab: 'Audits' },
+    { label: 'Compliance Issues', page: 'Governance', path: '/governance', tab: 'Compliance Issues' },
+    { label: 'Challenges', page: 'Gamification', path: '/gamification', tab: 'Challenges' },
+    { label: 'Challenge Participation', page: 'Gamification', path: '/gamification', tab: 'Challenge Participation' },
+    { label: 'Badges', page: 'Gamification', path: '/gamification', tab: 'Badges' },
+    { label: 'Rewards', page: 'Gamification', path: '/gamification', tab: 'Rewards' },
+    { label: 'Leaderboard', page: 'Gamification', path: '/gamification', tab: 'Leaderboard' },
+    { label: 'Reports - Custom Builder', page: 'Reports', path: '/reports', tab: 'Custom Builder' },
+    { label: 'Environmental Report', page: 'Reports', path: '/reports', tab: 'Environmental' },
+    { label: 'Social Report', page: 'Reports', path: '/reports', tab: 'Social' },
+    { label: 'Governance Report', page: 'Reports', path: '/reports', tab: 'Governance' },
+    { label: 'ESG Summary Report', page: 'Reports', path: '/reports', tab: 'ESG Summary' },
+    { label: 'Departments', page: 'Settings', path: '/settings', tab: 'Departments' },
+    { label: 'Categories', page: 'Settings', path: '/settings', tab: 'Categories' },
+    { label: 'ESG Configuration', page: 'Settings', path: '/settings', tab: 'ESG Configuration' },
+    { label: 'Notification Settings', page: 'Settings', path: '/settings', tab: 'Notification Settings' },
+  ];
+
+  const filteredResults = searchTerm.trim().length > 0
+    ? searchableItems.filter(item =>
+        item.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.page.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    : [];
+
+  const handleSearchSelect = (item) => {
+    if (setActivePage) setActivePage(item.page);
+    if (item.tab && setActiveTab) setActiveTab(item.tab);
+    navigate(item.path);
+    setSearchTerm('');
+    setShowSearchResults(false);
+  };
+
+  // Close dropdowns on outside click
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setShowDropdown(false);
+      }
+      if (searchRef.current && !searchRef.current.contains(event.target)) {
+        setShowSearchResults(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -45,18 +100,62 @@ const Navbar = ({ notifications = [], setNotifications }) => {
   };
 
   return (
-    <header className="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-8 sticky top-0 z-30 w-full">
-      <h1 className="text-xl font-semibold text-slate-800">{pageTitle}</h1>
+    <header className="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-4 md:px-8 sticky top-0 z-30 w-full">
+      <h1 className="text-base md:text-xl font-semibold text-slate-800 truncate mr-4">{pageTitle}</h1>
       
-      <div className="flex items-center gap-6">
-        {/* Search */}
-        <div className="relative">
+      <div className="flex items-center gap-3 md:gap-6">
+        {/* Global Search with Dropdown */}
+        <div className="relative" ref={searchRef}>
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
           <input 
             type="text" 
-            placeholder="Search..." 
-            className="pl-10 pr-4 py-2 bg-slate-100 border-transparent rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:bg-white focus:border-emerald-500 transition-all w-64"
+            placeholder="Search pages, settings..." 
+            value={searchTerm}
+            onChange={(e) => { setSearchTerm(e.target.value); setShowSearchResults(true); }}
+            onFocus={() => { if (searchTerm.trim()) setShowSearchResults(true); }}
+            className="pl-10 pr-8 py-2 bg-slate-100 border-transparent rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:bg-white focus:border-emerald-500 transition-all w-48 md:w-64"
           />
+          {searchTerm && (
+            <button 
+              onClick={() => { setSearchTerm(''); setShowSearchResults(false); }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+            >
+              <X size={14} />
+            </button>
+          )}
+
+          {/* Search Results Dropdown */}
+          {showSearchResults && filteredResults.length > 0 && (
+            <div className="absolute right-0 md:left-0 top-full mt-2 w-72 md:w-80 bg-white rounded-xl border border-slate-200 shadow-xl z-50 overflow-hidden">
+              <div className="p-3 border-b border-slate-100 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                {filteredResults.length} result{filteredResults.length !== 1 ? 's' : ''} found
+              </div>
+              <div className="max-h-64 overflow-y-auto">
+                {filteredResults.map((item, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => handleSearchSelect(item)}
+                    className="w-full text-left px-4 py-3 hover:bg-slate-50 transition-colors flex items-center justify-between border-b border-slate-50 last:border-0"
+                  >
+                    <div>
+                      <p className="text-sm font-medium text-slate-800">{item.label}</p>
+                      <p className="text-xs text-slate-500 mt-0.5">{item.page} Module</p>
+                    </div>
+                    <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-medium shrink-0 ml-2">
+                      {item.path}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {showSearchResults && searchTerm.trim().length > 0 && filteredResults.length === 0 && (
+            <div className="absolute right-0 md:left-0 top-full mt-2 w-72 md:w-80 bg-white rounded-xl border border-slate-200 shadow-xl z-50 p-6 text-center">
+              <p className="text-sm font-medium text-slate-600">No results found</p>
+              <p className="text-xs text-slate-400 mt-1">Try searching for "dashboard", "departments", "reports"...</p>
+            </div>
+          )}
         </div>
         
         {/* Notification Bell with Dropdown */}
@@ -188,7 +287,7 @@ const Navbar = ({ notifications = [], setNotifications }) => {
         </div>
         
         {/* User Info */}
-        <div className="flex items-center gap-3 border-l border-slate-200 pl-6 cursor-pointer">
+        <div className="flex items-center gap-3 border-l border-slate-200 pl-3 md:pl-6 cursor-pointer">
           <div className="text-right hidden md:block">
             <p className="text-sm font-medium text-slate-700">Jane Doe</p>
             <p className="text-xs text-slate-500">Admin</p>

@@ -9,6 +9,9 @@ const DepartmentTable = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDept, setEditingDept] = useState(null);
+  const [sortAsc, setSortAsc] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
   const { addToast } = useToast();
 
   const handleEdit = (dept) => {
@@ -35,10 +38,20 @@ const DepartmentTable = () => {
     setEditingDept(null);
   };
 
-  const filteredDepts = departments.filter(d => 
-    d.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    d.code.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const handleSort = () => {
+    setSortAsc(!sortAsc);
+  };
+
+  const filteredDepts = departments
+    .filter(d => 
+      d.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      d.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      d.head.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+    .sort((a, b) => sortAsc ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name));
+
+  const totalPages = Math.ceil(filteredDepts.length / itemsPerPage);
+  const paginatedDepts = filteredDepts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   return (
     <div className="flex flex-col h-full">
@@ -58,7 +71,7 @@ const DepartmentTable = () => {
             type="text" 
             placeholder="Search departments..." 
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
             className="pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-800/20 w-full sm:w-64"
           />
         </div>
@@ -68,8 +81,8 @@ const DepartmentTable = () => {
         <table className="w-full text-left text-sm text-slate-600">
           <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200">
             <tr>
-              <th className="px-6 py-3 cursor-pointer hover:bg-slate-100">
-                <div className="flex items-center gap-1">Name <ArrowUpDown size={14} /></div>
+              <th className="px-6 py-3 cursor-pointer hover:bg-slate-100" onClick={handleSort}>
+                <div className="flex items-center gap-1">Name <ArrowUpDown size={14} className={sortAsc ? 'text-slate-400' : 'text-slate-700'} /></div>
               </th>
               <th className="px-6 py-3">Code</th>
               <th className="px-6 py-3">Head</th>
@@ -80,12 +93,12 @@ const DepartmentTable = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {filteredDepts.map((dept) => (
+            {paginatedDepts.map((dept) => (
               <tr key={dept.id} className="hover:bg-slate-50/50 transition-colors">
-                <td className="px-6 py-4 font-medium text-slate-800">{dept.name}</td>
-                <td className="px-6 py-4">{dept.code}</td>
-                <td className="px-6 py-4">{dept.head}</td>
-                <td className="px-6 py-4 text-slate-500">{dept.parent}</td>
+                <td className="px-6 py-4 font-medium text-slate-800 whitespace-nowrap">{dept.name}</td>
+                <td className="px-6 py-4 whitespace-nowrap">{dept.code}</td>
+                <td className="px-6 py-4 whitespace-nowrap">{dept.head}</td>
+                <td className="px-6 py-4 text-slate-500 whitespace-nowrap">{dept.parent}</td>
                 <td className="px-6 py-4">{dept.employees}</td>
                 <td className="px-6 py-4">
                   <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${
@@ -121,10 +134,33 @@ const DepartmentTable = () => {
       </div>
 
       <div className="p-4 border-t border-slate-200 flex items-center justify-between text-sm text-slate-500 bg-slate-50/50">
-        <span>Showing 1 to {filteredDepts.length} of {filteredDepts.length} entries</span>
-        <div className="flex gap-1">
-          <button className="p-1 rounded hover:bg-slate-200 disabled:opacity-50" disabled><ChevronLeft size={16} /></button>
-          <button className="p-1 rounded hover:bg-slate-200 disabled:opacity-50" disabled><ChevronRight size={16} /></button>
+        <span>Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredDepts.length)} of {filteredDepts.length} entries</span>
+        <div className="flex items-center gap-1">
+          <button 
+            className="p-1.5 rounded hover:bg-slate-200 disabled:opacity-50" 
+            disabled={currentPage === 1}
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+          >
+            <ChevronLeft size={16} />
+          </button>
+          {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+            <button
+              key={page}
+              onClick={() => setCurrentPage(page)}
+              className={`w-7 h-7 rounded text-xs font-medium ${
+                currentPage === page ? 'bg-slate-800 text-white' : 'hover:bg-slate-200 text-slate-600'
+              }`}
+            >
+              {page}
+            </button>
+          ))}
+          <button 
+            className="p-1.5 rounded hover:bg-slate-200 disabled:opacity-50" 
+            disabled={currentPage === totalPages}
+            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+          >
+            <ChevronRight size={16} />
+          </button>
         </div>
       </div>
 
