@@ -1,0 +1,72 @@
+export const initialChallenges = [
+  {
+    id: 'CH-401',
+    title: 'Sustainability Sprint',
+    category: 'Carbon footprint',
+    description: 'Reduce personal travel carbon impact by carpooling, taking public transit, or cycling to work for 2 consecutive weeks.',
+    difficulty: 'Hard',
+    xpReward: 200,
+    startDate: '2026-07-06',
+    endDate: '2026-07-20',
+    evidenceRequired: 'Travel log snapshot / transit receipts',
+    status: 'Active',
+    participantsCount: 5,
+    icon: '🏃‍♂️'
+  },
+  {
+    id: 'CH-402',
+    title: 'Recycle Challenge',
+    category: 'Waste Management',
+    description: 'Properly segregate and dispose of workplace recyclables (plastics, papers, metals) and upload a photo of the recycling bin.',
+    difficulty: 'Easy',
+    xpReward: 80,
+    startDate: '2026-07-01',
+    endDate: '2026-07-15',
+    evidenceRequired: 'Photo of labeled waste disposal bin',
+    status: 'Active',
+    participantsCount: 8,
+    icon: '♻️'
+  },
+  {
+    id: 'CH-403',
+    title: 'Commute Green Week',
+    category: 'Energy Conservation',
+    description: 'Use fully electric, hybrid, or non-motorized transport options for all work travels for five business days.',
+    difficulty: 'Medium',
+    xpReward: 120,
+    startDate: '2026-07-18',
+    endDate: '2026-07-25',
+    evidenceRequired: 'Vehicle log or transit ticket screenshots',
+    status: 'Draft',
+    participantsCount: 0,
+    icon: '🚲'
+  },
+  {
+    id: 'CH-404',
+    title: 'Paperless Office Initiative',
+    category: 'Waste Management',
+    description: 'Go 100% digital with your department meetings, signing documents, and design reviews for the entire month.',
+    difficulty: 'Medium',
+    xpReward: 150,
+    startDate: '2026-06-01',
+    endDate: '2026-06-30',
+    evidenceRequired: 'Print logs showing 0 pages printed',
+    status: 'Completed',
+    participantsCount: 12,
+    icon: '📄'
+  },
+  {
+    id: 'CH-405',
+    title: 'Eco-Design Ideation Hack',
+    category: 'Product ESG',
+    description: 'Propose a circular design improvement proposal for the core product line packaging to reduce raw material extraction.',
+    difficulty: 'Hard',
+    xpReward: 300,
+    startDate: '2026-08-01',
+    endDate: '2026-08-10',
+    evidenceRequired: 'Design pitch deck (PDF)',
+    status: 'Scheduled',
+    participantsCount: 0,
+    icon: '💡'
+  }
+];

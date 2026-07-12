@@ -26,8 +26,8 @@ const Sidebar = ({ activePage = 'Dashboard', setActivePage, activeTab = 'Environ
     { name: 'Dashboard', icon: LayoutDashboard, active: activePage === 'Dashboard' },
     { name: 'Environmental', icon: Leaf, active: activePage === 'Environmental', subItems: ['Emission Factors', 'Product ESG Profiles', 'Carbon Transactions', 'Environmental Goals'] },
     { name: 'Social', icon: Users, active: activePage === 'Social', subItems: ['CSR Activities', 'Employee Participation', 'Diversity Dashboard'] },
-    { name: 'Governance', icon: Briefcase, active: false, subItems: ['Policies', 'Policy Acknowledgements', 'Audits', 'Compliance Issues'] },
-    { name: 'Gamification', icon: Gamepad2, active: false, subItems: ['Challenges', 'Challenge Participation', 'Badges', 'Rewards', 'Leaderboard'] },
+    { name: 'Governance', icon: Briefcase, active: activePage === 'Governance', subItems: ['Policies', 'Policy Acknowledgements', 'Audits', 'Compliance Issues'] },
+    { name: 'Gamification', icon: Gamepad2, active: activePage === 'Gamification', subItems: ['Challenges', 'Challenge Participation', 'Badges', 'Rewards', 'Leaderboard'] },
     { name: 'Reports', icon: FileText, active: false, subItems: ['Environmental Report', 'Social Report', 'Governance Report', 'ESG Summary', 'Custom Report Builder'] },
     { name: 'Settings', icon: Settings, active: false, subItems: ['Departments', 'Categories', 'ESG Configuration', 'Notification Settings'] },
   ];
@@ -45,7 +45,7 @@ const Sidebar = ({ activePage = 'Dashboard', setActivePage, activeTab = 'Environ
         <nav className="space-y-1 px-3">
           {menuItems.map((item) => {
             const isExpanded = expandedMenu === item.name;
-            const isClickable = item.name === 'Dashboard' || item.name === 'Environmental' || item.name === 'Social' || item.subItems;
+            const isClickable = item.name === 'Dashboard' || item.name === 'Environmental' || item.name === 'Social' || item.name === 'Governance' || item.name === 'Gamification' || item.subItems;
 
             return (
               <div key={item.name} className="flex flex-col">
@@ -61,6 +61,14 @@ const Sidebar = ({ activePage = 'Dashboard', setActivePage, activeTab = 'Environ
                       setActivePage('Social');
                       setActiveTab('CSR Activities');
                       toggleMenu('Social');
+                    } else if (item.name === 'Governance') {
+                      setActivePage('Governance');
+                      setActiveTab('Audits');
+                      toggleMenu('Governance');
+                    } else if (item.name === 'Gamification') {
+                      setActivePage('Gamification');
+                      setActiveTab('Challenges');
+                      toggleMenu('Gamification');
                     } else if (item.subItems) {
                       toggleMenu(item.name);
                     }
@@ -86,13 +94,13 @@ const Sidebar = ({ activePage = 'Dashboard', setActivePage, activeTab = 'Environ
                   <div className="mt-1 mb-2 ml-4 pl-6 border-l border-slate-100 space-y-1">
                     {item.subItems.map(sub => {
                       const isSubActive = activePage === item.name && activeTab === sub;
-                      const isSubDisabled = item.name !== 'Environmental' && item.name !== 'Social';
+                      const isSubDisabled = item.name !== 'Environmental' && item.name !== 'Social' && item.name !== 'Governance' && item.name !== 'Gamification';
                       return (
                         <button 
                           key={sub}
                           disabled={isSubDisabled}
                           onClick={() => {
-                            if (item.name === 'Environmental' || item.name === 'Social') {
+                            if (item.name === 'Environmental' || item.name === 'Social' || item.name === 'Governance' || item.name === 'Gamification') {
                               setActivePage(item.name);
                               setActiveTab(sub);
                             }
