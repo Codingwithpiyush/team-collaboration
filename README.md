@@ -6,7 +6,6 @@
 ![Django](https://img.shields.io/badge/Django-5-green?logo=django)
 ![SQLite](https://img.shields.io/badge/SQLite-blue?logo=sqlite)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-38B2AC?logo=tailwind-css)
-![License](https://img.shields.io/badge/License-MIT-yellow)
 
 ### 🌍 Empowering Organizations with Smart ESG Management
 
@@ -306,12 +305,6 @@ Developed with Team Collaboration
 ✔ Scalable Design
 
 ✔ Easy to Use
-
----
-
-## 📜 License
-
-This project is developed for educational and hackathon purposes.
 
 ---
 
