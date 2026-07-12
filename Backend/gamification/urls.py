@@ -7,7 +7,9 @@ from .views import (
     EmployeeBadgeViewSet,
     RewardViewSet,
     RewardRedemptionViewSet,
-    LeaderboardViewSet
+    LeaderboardViewSet,
+    BadgeGalleryViewSet,
+    GamificationDashboardViewSet
 )
 
 router = DefaultRouter()
@@ -18,6 +20,8 @@ router.register(r'employee-badges', EmployeeBadgeViewSet, basename='employee-bad
 router.register(r'rewards', RewardViewSet, basename='reward')
 router.register(r'redemptions', RewardRedemptionViewSet, basename='reward-redemption')
 router.register(r'leaderboard', LeaderboardViewSet, basename='gamification-leaderboard')
+router.register(r'badge-gallery', BadgeGalleryViewSet, basename='badge-gallery')
+router.register(r'dashboard', GamificationDashboardViewSet, basename='gamification-dashboard')
 
 urlpatterns = [
     path('', include(router.urls)),

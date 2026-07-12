@@ -5,7 +5,8 @@ from .views import (
     CategoryViewSet,
     EmployeeProfileViewSet,
     OrganizationSettingsViewSet,
-    NotificationSettingsViewSet
+    NotificationSettingsViewSet,
+    SettingsDashboardViewSet
 )
 
 router = DefaultRouter()
@@ -14,6 +15,7 @@ router.register(r'categories', CategoryViewSet, basename='category')
 router.register(r'employees', EmployeeProfileViewSet, basename='employee')
 router.register(r'organization-settings', OrganizationSettingsViewSet, basename='organization-settings')
 router.register(r'notification-settings', NotificationSettingsViewSet, basename='notification-settings')
+router.register(r'settings', SettingsDashboardViewSet, basename='settings')
 
 urlpatterns = [
     path('', include(router.urls)),

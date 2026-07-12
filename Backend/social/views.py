@@ -47,9 +47,33 @@ class CSRActivityViewSet(viewsets.ModelViewSet):
     permission_classes = [AllowAny]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['status', 'category']
-    search_fields = ['title', 'description']
+    search_fields = ['title', 'category__name', 'description', 'status']
     ordering_fields = ['start_date', 'points']
     ordering = ['-start_date']
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+
+        # Calculate extra fields
+        participations = instance.participations.all()
+        total_joined = participations.count()
+        pending = participations.filter(status='pending').count()
+        approved = participations.filter(status='approved').count()
+
+        from users.services import OrganizationSettingsService
+        settings = OrganizationSettingsService.get_settings()
+        evidence_required = settings.require_evidence
+
+        data = serializer.data
+        data.update({
+            'total_joined_employees': total_joined,
+            'pending_approvals': pending,
+            'approved_participants': approved,
+            'reward_points': instance.points,
+            'evidence_required': evidence_required,
+        })
+        return Response(data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['post'], url_path='join')
     def join(self, request, pk=None):
@@ -98,10 +122,38 @@ class EmployeeParticipationViewSet(viewsets.ModelViewSet):
     serializer_class = EmployeeParticipationSerializer
     pagination_class = StandardResultsSetPagination
     permission_classes = [AllowAny]
-    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['status', 'employee', 'activity']
-    ordering_fields = ['joined_date']
+    search_fields = ['employee__user__first_name', 'employee__user__last_name', 'employee__employee_id', 'activity__title']
+    ordering_fields = ['joined_date', 'employee__user__first_name', 'activity__title']
     ordering = ['-joined_date']
+
+    @action(detail=False, methods=['get'], url_path='pending')
+    def pending(self, request):
+        queryset = self.get_queryset().filter(status='pending')
+        # Apply filters (search, ordering, pagination)
+        queryset = self.filter_queryset(queryset)
+
+        page = self.paginate_queryset(queryset)
+
+        def format_item(item):
+            proof_file_url = request.build_absolute_uri(item.evidence.url) if item.evidence else None
+            return {
+                'id': item.id,
+                'employee_name': item.employee.user.get_full_name(),
+                'employee_id': item.employee.employee_id,
+                'activity': item.activity.title,
+                'proof_file': proof_file_url,
+                'points': item.activity.points,
+                'submitted_date': item.joined_date.isoformat()
+            }
+
+        if page is not None:
+            formatted_data = [format_item(item) for item in page]
+            return self.get_paginated_response(formatted_data)
+
+        formatted_data = [format_item(item) for item in queryset]
+        return Response(formatted_data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['post'], url_path='approve')
     def approve(self, request, pk=None):
@@ -229,6 +281,27 @@ class SocialDashboardViewSet(viewsets.ViewSet):
     API endpoints for the Social Sustainability Analytical Dashboard.
     """
     permission_classes = [AllowAny]
+
+    @action(detail=False, methods=['get'], url_path='activity-stats')
+    def activity_stats(self, request):
+        """
+        Gets summary metrics/statistics of all CSR activities and employee participations.
+        """
+        total_activities = CSRActivity.objects.count()
+        active_activities = CSRActivity.objects.filter(status='active').count()
+        completed_activities = CSRActivity.objects.filter(status='completed').count()
+        total_participants = EmployeeParticipation.objects.count()
+        pending_approvals = EmployeeParticipation.objects.filter(status='pending').count()
+        approved_participations = EmployeeParticipation.objects.filter(status='approved').count()
+
+        return Response({
+            'total_activities': total_activities,
+            'active_activities': active_activities,
+            'completed_activities': completed_activities,
+            'total_participants': total_participants,
+            'pending_approvals': pending_approvals,
+            'approved_participations': approved_participations
+        }, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=['get'], url_path='monthly-trend')
     def monthly_trend(self, request):

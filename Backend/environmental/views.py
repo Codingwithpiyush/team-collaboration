@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import AllowAny
+from django.http import HttpResponse
 
 from .models import (
     EmissionFactor,
@@ -71,9 +72,88 @@ class EnvironmentalGoalViewSet(viewsets.ModelViewSet):
     permission_classes = [AllowAny]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['status', 'target_type', 'department']
-    search_fields = ['name']
+    search_fields = ['name', 'department__name', 'status']
     ordering_fields = ['target_date', 'target_value']
     ordering = ['target_date']
+
+    @action(detail=False, methods=['get'], url_path='export')
+    def export(self, request):
+        """
+        Export environmental goals as PDF, Excel, or CSV.
+        """
+        queryset = self.queryset
+
+        # Apply filters
+        department = request.query_params.get('department')
+        status_param = request.query_params.get('status')
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+
+        if department:
+            queryset = queryset.filter(department_id=department)
+        if status_param:
+            queryset = queryset.filter(status=status_param)
+        if start_date:
+            queryset = queryset.filter(target_date__gte=start_date)
+        if end_date:
+            queryset = queryset.filter(target_date__lte=end_date)
+
+        # Retrieve export format
+        export_format = request.query_params.get('export', 'csv').lower()
+
+        # Build data for ReportEngine
+        title = "Environmental Goals Report"
+        headers = ["Goal ID", "Goal Name", "Target Type", "Department", "Start Date", "Target Date", "Target Value", "Current Value", "Status"]
+
+        rows = []
+        for goal in queryset:
+            dept_name = goal.department.name if goal.department else "Organization-Wide"
+            rows.append([
+                str(goal.id),
+                goal.name,
+                goal.get_target_type_display() if hasattr(goal, 'get_target_type_display') else goal.target_type,
+                dept_name,
+                goal.start_date.strftime('%Y-%m-%d') if goal.start_date else '',
+                goal.target_date.strftime('%Y-%m-%d') if goal.target_date else '',
+                float(goal.target_value),
+                float(goal.current_value),
+                goal.get_status_display() if hasattr(goal, 'get_status_display') else goal.status
+            ])
+
+        # Prepare summary dictionary
+        summary = {
+            "Total Goals": len(rows),
+            "Active Goals": queryset.filter(status='active').count(),
+            "Achieved Goals": queryset.filter(status='achieved').count(),
+            "Failed Goals": queryset.filter(status='failed').count(),
+            "Cancelled Goals": queryset.filter(status='cancelled').count()
+        }
+
+        # Import ReportEngine dynamically to avoid circular dependencies
+        from reports.services import ReportEngine
+
+        if export_format == 'csv':
+            csv_data = ReportEngine.export_as_csv(title, headers, rows)
+            response = HttpResponse(csv_data, content_type='text/csv')
+            response['Content-Disposition'] = f'attachment; filename="environmental_goals.csv"'
+            return response
+
+        elif export_format == 'excel':
+            excel_data = ReportEngine.export_as_excel(title, headers, rows, summary)
+            response = HttpResponse(excel_data, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+            response['Content-Disposition'] = f'attachment; filename="environmental_goals.xlsx"'
+            return response
+
+        elif export_format == 'pdf':
+            pdf_data = ReportEngine.export_as_pdf(title, headers, rows, summary)
+            response = HttpResponse(pdf_data, content_type='application/pdf')
+            response['Content-Disposition'] = f'attachment; filename="environmental_goals.pdf"'
+            return response
+
+        return Response(
+            {"detail": f"Unsupported export format '{export_format}'. Use csv, excel, or pdf."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
 
 class CarbonTransactionViewSet(viewsets.ModelViewSet):
