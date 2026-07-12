@@ -50,8 +50,8 @@ class ChallengeViewSet(viewsets.ModelViewSet):
     permission_classes = [AllowAny]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['status', 'category']
-    search_fields = ['title', 'description']
-    ordering_fields = ['start_date', 'end_date', 'xp_reward']
+    search_fields = ['title', 'category__name', 'status']
+    ordering_fields = ['start_date', 'end_date', 'xp_reward', 'title']
     ordering = ['-created_at']
 
     @action(detail=True, methods=['post'], url_path='join')
@@ -340,3 +340,124 @@ class LeaderboardViewSet(viewsets.ViewSet):
 
         serializer = DepartmentLeaderboardSerializer(queryset, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class BadgeGalleryViewSet(viewsets.ViewSet):
+    """
+    API endpoint to list badges with unlock status for an employee.
+    """
+    permission_classes = [AllowAny]
+
+    def list(self, request):
+        employee_id = request.query_params.get('employee')
+
+        # Check unlocked badge IDs
+        unlocked_badge_ids = set()
+        if employee_id:
+            try:
+                unlocked_badge_ids = set(
+                    EmployeeBadge.objects.filter(employee_id=employee_id)
+                    .values_list('badge_id', flat=True)
+                )
+            except Exception:
+                pass
+        elif hasattr(request.user, 'profile'):
+            unlocked_badge_ids = set(
+                EmployeeBadge.objects.filter(employee=request.user.profile)
+                .values_list('badge_id', flat=True)
+            )
+
+        badges = Badge.objects.all().order_by('criteria_xp')
+
+        gallery = []
+        for badge in badges:
+            gallery.append({
+                'name': badge.name,
+                'icon': badge.icon,
+                'description': badge.description,
+                'unlock_status': badge.id in unlocked_badge_ids,
+                'required_xp': badge.criteria_xp
+            })
+
+        return Response(gallery, status=status.HTTP_200_OK)
+
+
+class GamificationDashboardViewSet(viewsets.ViewSet):
+    """
+    Unified analytics and widget dashboard API for gamification tasks.
+    """
+    permission_classes = [AllowAny]
+
+    def list(self, request):
+        # 1. Challenge Stats
+        stats = {
+            'total_challenges': Challenge.objects.count(),
+            'draft': Challenge.objects.filter(status='draft').count(),
+            'active': Challenge.objects.filter(status='active').count(),
+            'under_review': Challenge.objects.filter(status='under_review').count(),
+            'completed': Challenge.objects.filter(status='completed').count(),
+            'archived': Challenge.objects.filter(status='archived').count(),
+            'total_participants': ChallengeParticipation.objects.count(),
+        }
+
+        # 2. Featured Challenges
+        active_challenges = Challenge.objects.filter(status='active').order_by('end_date')[:3]
+        featured_challenges = ChallengeSerializer(active_challenges, many=True).data
+
+        # 3. Badge Gallery
+        employee_id = request.query_params.get('employee')
+        unlocked_badge_ids = set()
+        if employee_id:
+            try:
+                unlocked_badge_ids = set(
+                    EmployeeBadge.objects.filter(employee_id=employee_id)
+                    .values_list('badge_id', flat=True)
+                )
+            except Exception:
+                pass
+        elif hasattr(request.user, 'profile'):
+            unlocked_badge_ids = set(
+                EmployeeBadge.objects.filter(employee=request.user.profile)
+                .values_list('badge_id', flat=True)
+            )
+
+        badges = Badge.objects.all().order_by('criteria_xp')
+        badge_gallery = []
+        for badge in badges:
+            badge_gallery.append({
+                'name': badge.name,
+                'icon': badge.icon,
+                'description': badge.description,
+                'unlock_status': badge.id in unlocked_badge_ids,
+                'required_xp': badge.criteria_xp
+            })
+
+        # 4. Top 10 Leaderboard
+        LeaderboardService.recalculate_leaderboards()
+        top_ranks = EmployeeLeaderboard.objects.all().select_related('employee__user', 'employee__department')[:10]
+        leaderboard = EmployeeLeaderboardSerializer(top_ranks, many=True).data
+
+        # 5. Reward Summary
+        rewards = Reward.objects.filter(status='active', stock__gt=0).order_by('xp_cost')[:5]
+        reward_summary = RewardSerializer(rewards, many=True).data
+
+        return Response({
+            'challenge_stats': stats,
+            'featured_challenges': featured_challenges,
+            'badge_gallery': badge_gallery,
+            'leaderboard': leaderboard,
+            'reward_summary': reward_summary
+        }, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['get'], url_path='challenge-stats')
+    def challenge_stats(self, request):
+        stats = {
+            'total_challenges': Challenge.objects.count(),
+            'draft': Challenge.objects.filter(status='draft').count(),
+            'active': Challenge.objects.filter(status='active').count(),
+            'under_review': Challenge.objects.filter(status='under_review').count(),
+            'completed': Challenge.objects.filter(status='completed').count(),
+            'archived': Challenge.objects.filter(status='archived').count(),
+            'total_participants': ChallengeParticipation.objects.count(),
+        }
+        return Response(stats, status=status.HTTP_200_OK)

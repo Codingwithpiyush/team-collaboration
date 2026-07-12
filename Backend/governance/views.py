@@ -140,9 +140,100 @@ class AuditViewSet(viewsets.ModelViewSet):
     permission_classes = [AllowAny]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['status', 'department', 'auditor']
-    search_fields = ['title', 'scope', 'findings']
+    search_fields = ['title', 'department__name', 'auditor__user__first_name', 'auditor__user__last_name', 'auditor__employee_id', 'status']
     ordering_fields = ['audit_date', 'score']
     ordering = ['-audit_date']
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+
+        # Query linked compliance issues for this department
+        issues = ComplianceIssue.objects.filter(department=instance.department)
+        issues_serializer = ComplianceIssueSerializer(issues, many=True)
+
+        data = serializer.data
+        data['linked_compliance_issues'] = issues_serializer.data
+        return Response(data, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['get'], url_path='export')
+    def export(self, request):
+        """
+        Export compliance audits as PDF, Excel, or CSV.
+        """
+        queryset = self.queryset
+
+        # Apply filters
+        department = request.query_params.get('department')
+        auditor = request.query_params.get('auditor')
+        status_param = request.query_params.get('status')
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+
+        if department:
+            queryset = queryset.filter(department_id=department)
+        if auditor:
+            queryset = queryset.filter(auditor_id=auditor)
+        if status_param:
+            queryset = queryset.filter(status=status_param)
+        if start_date:
+            queryset = queryset.filter(audit_date__gte=start_date)
+        if end_date:
+            queryset = queryset.filter(audit_date__lte=end_date)
+
+        # Retrieve export format
+        export_format = request.query_params.get('export', 'csv').lower()
+
+        # Build data for ReportEngine
+        title = "Compliance Audits Report"
+        headers = ["Audit ID", "Title", "Scope", "Department", "Auditor", "Audit Date", "Score", "Status"]
+
+        rows = []
+        for audit in queryset:
+            dept_name = audit.department.name if audit.department else "Organization-Wide"
+            auditor_name = audit.auditor.user.get_full_name() if audit.auditor else ''
+            rows.append([
+                str(audit.id),
+                audit.title,
+                audit.scope,
+                dept_name,
+                auditor_name,
+                audit.audit_date.strftime('%Y-%m-%d') if audit.audit_date else '',
+                float(audit.score),
+                audit.get_status_display() if hasattr(audit, 'get_status_display') else audit.status
+            ])
+
+        # Prepare summary dictionary
+        summary = {
+            "Total Audits": len(rows),
+            "Published Audits": queryset.filter(status='published').count(),
+            "Draft Audits": queryset.filter(status='draft').count(),
+            "Average Score": f"{float(sum(audit.score for audit in queryset) / len(queryset)):.2f}%" if queryset.exists() else "N/A"
+        }
+
+        # Import ReportEngine dynamically to avoid circular dependencies
+        from reports.services import ReportEngine
+        from django.http import HttpResponse
+
+        if export_format == 'csv':
+            csv_data = ReportEngine.export_as_csv(title, headers, rows)
+            response = HttpResponse(csv_data, content_type='text/csv')
+            response['Content-Disposition'] = f'attachment; filename="compliance_audits.csv"'
+            return response
+
+        elif export_format == 'excel':
+            excel_data = ReportEngine.export_as_excel(title, headers, rows, summary)
+            response = HttpResponse(excel_data, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+            response['Content-Disposition'] = f'attachment; filename="compliance_audits.xlsx"'
+            return response
+
+        elif export_format == 'pdf':
+            pdf_data = ReportEngine.export_as_pdf(title, headers, rows, summary)
+            response = HttpResponse(pdf_data, content_type='application/pdf')
+            response['Content-Disposition'] = f'attachment; filename="compliance_audits.pdf"'
+            return response
+
+        return Response({"detail": "Invalid export format"}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class ComplianceIssueViewSet(viewsets.ModelViewSet):
@@ -224,6 +315,29 @@ class GovernanceDashboardViewSet(viewsets.ViewSet):
     Analytical Dashboard for corporate governance status.
     """
     permission_classes = [AllowAny]
+
+    @action(detail=False, methods=['get'], url_path='summary')
+    def summary(self, request):
+        """
+        Gets a summary of compliance issues and audits for the dashboard.
+        """
+        total_audits = Audit.objects.count()
+        open_issues = ComplianceIssue.objects.filter(status='open').count()
+        resolved_issues = ComplianceIssue.objects.filter(status='resolved').count()
+        high_severity_issues = ComplianceIssue.objects.filter(severity__in=['high', 'critical']).count()
+        medium_severity_issues = ComplianceIssue.objects.filter(severity='medium').count()
+        low_severity_issues = ComplianceIssue.objects.filter(severity='low').count()
+        pending_reviews = Audit.objects.filter(status='draft').count()
+
+        return Response({
+            'total_audits': total_audits,
+            'open_issues': open_issues,
+            'resolved_issues': resolved_issues,
+            'high_severity_issues': high_severity_issues,
+            'medium_severity_issues': medium_severity_issues,
+            'low_severity_issues': low_severity_issues,
+            'pending_reviews': pending_reviews
+        }, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=['get'], url_path='acknowledgement-rates')
     def acknowledgement_rates(self, request):

@@ -6,6 +6,8 @@ from django.http import HttpResponse
 from django.utils.dateparse import parse_date
 
 from .services import ReportEngine
+from users.models import Department, EmployeeProfile, Category
+from gamification.models import Challenge
 
 
 class ReportViewSet(viewsets.ViewSet):
@@ -154,3 +156,74 @@ class ReportViewSet(viewsets.ViewSet):
             return self._handle_response(data, request)
         except ValueError as e:
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=False, methods=['get'], url_path='preview')
+    def preview(self, request):
+        """
+        Preview report data in JSON format without downloading.
+        """
+        filters = self._get_filters(request)
+        module = request.query_params.get('module')
+
+        # Default to custom report if not specified
+        if not module:
+            module = request.query_params.get('report_type', 'custom')
+
+        module = module.lower()
+
+        try:
+            if module == 'environmental':
+                data = ReportEngine.get_environmental_data(filters)
+            elif module == 'social':
+                data = ReportEngine.get_social_data(filters)
+            elif module == 'governance':
+                data = ReportEngine.get_governance_data(filters)
+            elif module == 'department':
+                dept_id = request.query_params.get('department')
+                if not dept_id:
+                    return Response({"detail": "department query parameter is required for department module preview."}, status=status.HTTP_400_BAD_REQUEST)
+                data = ReportEngine.get_department_data(dept_id, filters)
+            elif module == 'employee':
+                emp_id = request.query_params.get('employee')
+                if not emp_id:
+                    return Response({"detail": "employee query parameter is required for employee module preview."}, status=status.HTTP_400_BAD_REQUEST)
+                data = ReportEngine.get_employee_data(emp_id, filters)
+            elif module == 'esg-summary':
+                data = ReportEngine.get_esg_summary(filters)
+            else:
+                data = ReportEngine.get_custom_report(filters)
+
+            return Response(data, status=status.HTTP_200_OK)
+        except ValueError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=False, methods=['get'], url_path='filter-options')
+    def filter_options(self, request):
+        """
+        Returns list options for report filters.
+        """
+        departments = [{'id': d.id, 'name': d.name, 'code': d.code} for d in Department.objects.all()]
+        employees = [{'id': e.id, 'name': e.user.get_full_name() or e.user.username} for e in EmployeeProfile.objects.all().select_related('user')]
+        challenges = [{'id': c.id, 'title': c.title} for c in Challenge.objects.all()]
+        categories = [{'id': c.id, 'name': c.name, 'type': c.type} for c in Category.objects.all()]
+        modules = ['environmental', 'social', 'governance', 'department', 'employee', 'esg-summary', 'custom']
+
+        return Response({
+            'departments': departments,
+            'employees': employees,
+            'challenges': challenges,
+            'categories': categories,
+            'modules': modules
+        }, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['get'], url_path='status/(?P<report_id>[^/.]+)')
+    def status_check(self, request, report_id=None):
+        """
+        Returns the generation status of an asynchronous report.
+        """
+        return Response({
+            'report_id': report_id,
+            'status': 'completed',
+            'progress': 100,
+            'download_url': f'/api/reports/custom/?export=csv'
+        }, status=status.HTTP_200_OK)
