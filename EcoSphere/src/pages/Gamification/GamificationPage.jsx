@@ -713,7 +713,6 @@ const GamificationPage = ({
                 style={{
                   display: 'flex', alignItems: 'center', gap: '8px',
                   padding: '12px 20px',
-                  borderBottom: isActive ? '2px solid #ea580c' : '2px solid transparent',
                   fontSize: '14px', fontWeight: 600,
                   color: isActive ? '#ea580c' : '#64748b',
                   backgroundColor: 'transparent', border: 'none',

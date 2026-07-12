@@ -13,6 +13,7 @@ const CarbonTransactions = ({ carbonTransactions, setCarbonTransactions, emissio
     emissionFactorId: '',
     quantity: '',
     calculatedCo2: '',
+    transactionDate: new Date().toISOString().split('T')[0],
     notes: ''
   });
   const [errors, setErrors] = useState({});
@@ -60,6 +61,7 @@ const CarbonTransactions = ({ carbonTransactions, setCarbonTransactions, emissio
       emissionFactorId: emissionFactors[0]?.id || '',
       quantity: '',
       calculatedCo2: '',
+      transactionDate: new Date().toISOString().split('T')[0],
       notes: ''
     });
     setErrors({});
@@ -90,6 +92,7 @@ const CarbonTransactions = ({ carbonTransactions, setCarbonTransactions, emissio
     if (!formData.employeeId) e.employeeId = 'Required';
     if (!formData.emissionFactorId) e.emissionFactorId = 'Required';
     if (isNaN(parseFloat(formData.quantity)) || parseFloat(formData.quantity) <= 0) e.quantity = 'Must be positive';
+    if (!formData.transactionDate) e.transactionDate = 'Required';
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -106,6 +109,7 @@ const CarbonTransactions = ({ carbonTransactions, setCarbonTransactions, emissio
       quantity: parseFloat(formData.quantity),
       unit: selectedFactor?.unit || 'kWh',
       emission_factor: parseInt(formData.emissionFactorId),
+      transaction_date: formData.transactionDate,
       notes: formData.notes.trim()
     };
 
@@ -251,6 +255,18 @@ const CarbonTransactions = ({ carbonTransactions, setCarbonTransactions, emissio
                   <label style={{ ...labelStyle, display: 'flex', alignItems: 'center', gap: '4px' }}><Calculator size={14} style={{ color: '#94a3b8' }} /><span>Calculated CO₂ (t)</span></label>
                   <input type="number" name="calculatedCo2" value={formData.calculatedCo2} disabled placeholder="Auto-calculated" style={{ ...inputStyle(false), backgroundColor: '#f1f5f9', fontWeight: 600 }} />
                 </div>
+              </div>
+              <div>
+                <label style={labelStyle}>Transaction Date</label>
+                <input
+                  type="date"
+                  name="transactionDate"
+                  value={formData.transactionDate}
+                  onChange={handleFormChange}
+                  max={new Date().toISOString().split('T')[0]}
+                  style={inputStyle(errors.transactionDate)}
+                />
+                {errors.transactionDate && <p style={{ fontSize: '12px', color: '#ef4444', margin: '4px 0 0' }}>{errors.transactionDate}</p>}
               </div>
               <div>
                 <label style={labelStyle}>Notes / Activity Details</label>
