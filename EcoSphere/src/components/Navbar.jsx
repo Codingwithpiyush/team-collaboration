@@ -10,6 +10,8 @@ const Navbar = () => {
     pageTitle = 'Social : CSR & Employee Engagement';
   } else if (location.pathname === '/environmental') {
     pageTitle = 'Environmental';
+  } else if (location.pathname === '/reports') {
+    pageTitle = 'EcoSphere: Reports';
   }
 
   return (

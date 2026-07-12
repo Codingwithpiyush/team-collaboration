@@ -45,7 +45,7 @@ const Sidebar = ({ activePage = 'Dashboard', setActivePage, activeTab = 'Environ
         <nav className="space-y-1 px-3">
           {menuItems.map((item) => {
             const isExpanded = expandedMenu === item.name;
-            const isClickable = item.name === 'Dashboard' || item.name === 'Environmental' || item.name === 'Social' || item.subItems;
+            const isClickable = item.name === 'Dashboard' || item.name === 'Environmental' || item.name === 'Social' || item.name === 'Reports' || item.subItems;
 
             return (
               <div key={item.name} className="flex flex-col">
@@ -61,6 +61,10 @@ const Sidebar = ({ activePage = 'Dashboard', setActivePage, activeTab = 'Environ
                       setActivePage('Social');
                       setActiveTab('CSR Activities');
                       toggleMenu('Social');
+                    } else if (item.name === 'Reports') {
+                      setActivePage('Reports');
+                      setActiveTab('Custom Builder');
+                      toggleMenu('Reports');
                     } else if (item.subItems) {
                       toggleMenu(item.name);
                     }
@@ -86,13 +90,13 @@ const Sidebar = ({ activePage = 'Dashboard', setActivePage, activeTab = 'Environ
                   <div className="mt-1 mb-2 ml-4 pl-6 border-l border-slate-100 space-y-1">
                     {item.subItems.map(sub => {
                       const isSubActive = activePage === item.name && activeTab === sub;
-                      const isSubDisabled = item.name !== 'Environmental' && item.name !== 'Social';
+                      const isSubDisabled = item.name !== 'Environmental' && item.name !== 'Social' && item.name !== 'Reports';
                       return (
                         <button 
                           key={sub}
                           disabled={isSubDisabled}
                           onClick={() => {
-                            if (item.name === 'Environmental' || item.name === 'Social') {
+                            if (item.name === 'Environmental' || item.name === 'Social' || item.name === 'Reports') {
                               setActivePage(item.name);
                               setActiveTab(sub);
                             }

@@ -4,6 +4,7 @@ import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import SocialPage from './pages/SocialPage';
 import EnvironmentalPage from './pages/Environmental/EnvironmentalPage';
+import ReportsPage from './pages/ReportsPage';
 import { 
   initialGoals, 
   initialEmissionFactors, 
@@ -33,11 +34,13 @@ function App() {
   let activePage = 'Dashboard';
   if (location.pathname === '/environmental') activePage = 'Environmental';
   if (location.pathname === '/social') activePage = 'Social';
+  if (location.pathname === '/reports') activePage = 'Reports';
 
   const handleSetActivePage = (page) => {
     if (page === 'Dashboard') navigate('/dashboard');
     else if (page === 'Environmental') navigate('/environmental');
     else if (page === 'Social') navigate('/social');
+    else if (page === 'Reports') navigate('/reports');
   };
 
   return (
@@ -51,6 +54,7 @@ function App() {
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<Dashboard environmentalScore={environmentalScore} />} />
         <Route path="/social" element={<SocialPage activeTab={activeTab} setActiveTab={setActiveTab} />} />
+        <Route path="/reports" element={<ReportsPage activeTab={activeTab} />} />
         <Route path="/environmental" element={
           <EnvironmentalPage 
             activeTab={activeTab} 
