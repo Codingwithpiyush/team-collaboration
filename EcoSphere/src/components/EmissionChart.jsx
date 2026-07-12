@@ -3,7 +3,9 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { emissionData } from '../data/dashboardData';
 import { TrendingDown } from 'lucide-react';
 
-const EmissionChart = () => {
+const EmissionChart = ({ data }) => {
+  const chartData = data && data.length > 0 ? data : emissionData;
+
   return (
     <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 h-full flex flex-col">
       <div className="flex items-center justify-between mb-6">
@@ -19,7 +21,7 @@ const EmissionChart = () => {
       
       <div className="flex-1 w-full h-[300px]">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={emissionData} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
+          <LineChart data={chartData} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
             <XAxis 
               dataKey="month" 

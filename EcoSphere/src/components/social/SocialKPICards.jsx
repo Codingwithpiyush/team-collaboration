@@ -1,13 +1,29 @@
-import React from 'react';
-import { TreePine, Users, Clock, Star } from 'lucide-react';
-import { socialKPIs } from '../../data/socialData';
+import React, { useState, useEffect } from 'react';
+import { Briefcase, Users, Clock, CheckCircle } from 'lucide-react';
+import { BASE_API_URL } from '../../config';
 
 const SocialKPICards = () => {
+  const [stats, setStats] = useState(null);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const res = await fetch(`${BASE_API_URL}/api/social/dashboard/activity-stats/`);
+        if (res.ok) {
+          setStats(await res.json());
+        }
+      } catch (err) {
+        console.error("Failed to load activity stats", err);
+      }
+    };
+    fetchStats();
+  }, []);
+
   const kpis = [
-    { title: 'Trees Planted', value: socialKPIs.treesPlanted, icon: TreePine, color: 'text-emerald-600', bg: 'bg-emerald-100' },
-    { title: 'Active Volunteers', value: socialKPIs.activeVolunteers, icon: Users, color: 'text-blue-600', bg: 'bg-blue-100' },
-    { title: 'Volunteer Hours', value: socialKPIs.volunteerHours, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-100' },
-    { title: 'Social Score', value: socialKPIs.socialScore, icon: Star, color: 'text-purple-600', bg: 'bg-purple-100' },
+    { title: 'Active CSR Initiatives', value: stats ? stats.active_activities : 6, icon: Briefcase, color: 'text-blue-600', bg: 'bg-blue-100' },
+    { title: 'Total Participants', value: stats ? stats.total_participants : 156, icon: Users, color: 'text-emerald-600', bg: 'bg-emerald-100' },
+    { title: 'Pending Approvals', value: stats ? stats.pending_approvals : 12, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-100' },
+    { title: 'Approved Volunteers', value: stats ? stats.approved_participations : 144, icon: CheckCircle, color: 'text-purple-600', bg: 'bg-purple-100' },
   ];
 
   return (

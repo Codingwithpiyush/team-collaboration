@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
+import { BASE_API_URL } from '../../config';
 
 const GoalModal = ({ isOpen, onClose, onSave, goal }) => {
   const [formData, setFormData] = useState({
     name: '',
-    department: 'Logistics',
+    departmentId: '',
     targetCo2: '',
     currentCo2: '',
     deadline: '',
@@ -12,13 +13,37 @@ const GoalModal = ({ isOpen, onClose, onSave, goal }) => {
     description: ''
   });
 
+  const [departments, setDepartments] = useState([]);
   const [errors, setErrors] = useState({});
+
+  useEffect(() => {
+    const fetchDepts = async () => {
+      try {
+        const res = await fetch(`${BASE_API_URL}/api/users/departments/dropdown/`);
+        if (res.ok) {
+          const data = await res.json();
+          setDepartments(data);
+        } else {
+          const res2 = await fetch(`${BASE_API_URL}/api/users/departments/`);
+          if (res2.ok) {
+            const data2 = await res2.json();
+            setDepartments(Array.isArray(data2) ? data2 : (data2.results || []));
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load departments in GoalModal:", err);
+      }
+    };
+    if (isOpen) {
+      fetchDepts();
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (goal) {
       setFormData({
         name: goal.name || '',
-        department: goal.department || 'Logistics',
+        departmentId: goal.departmentId || '',
         targetCo2: goal.targetCo2 || '',
         currentCo2: goal.currentCo2 || '',
         deadline: goal.deadline || '',
@@ -28,16 +53,16 @@ const GoalModal = ({ isOpen, onClose, onSave, goal }) => {
     } else {
       setFormData({
         name: '',
-        department: 'Logistics',
+        departmentId: departments[0]?.id || '',
         targetCo2: '',
-        currentCo2: '',
+        currentCo2: '0',
         deadline: '',
         status: 'Active',
         description: ''
       });
     }
     setErrors({});
-  }, [goal, isOpen]);
+  }, [goal, isOpen, departments]);
 
   if (!isOpen) return null;
 
@@ -49,14 +74,11 @@ const GoalModal = ({ isOpen, onClose, onSave, goal }) => {
   const validate = () => {
     const newErrors = {};
     if (!formData.name.trim()) newErrors.name = 'Goal Name is required';
-    if (!formData.department) newErrors.department = 'Department is required';
+    if (!formData.departmentId) newErrors.departmentId = 'Department is required';
     const target = parseFloat(formData.targetCo2);
     if (isNaN(target) || target <= 0) newErrors.targetCo2 = 'Target CO₂ must be a positive number';
     const current = parseFloat(formData.currentCo2);
     if (isNaN(current) || current < 0) newErrors.currentCo2 = 'Current CO₂ must be a non-negative number';
-    if (!isNaN(target) && target > 0 && !isNaN(current) && current > target) {
-      newErrors.currentCo2 = 'Current CO₂ cannot exceed Target CO₂';
-    }
     if (!formData.deadline) newErrors.deadline = 'Deadline is required';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -66,9 +88,9 @@ const GoalModal = ({ isOpen, onClose, onSave, goal }) => {
     e.preventDefault();
     if (!validate()) return;
     onSave({
-      id: goal ? goal.id : 'G-' + Date.now(),
+      id: goal ? goal.id : undefined,
       name: formData.name.trim(),
-      department: formData.department,
+      departmentId: parseInt(formData.departmentId),
       targetCo2: parseFloat(formData.targetCo2),
       currentCo2: parseFloat(formData.currentCo2),
       deadline: formData.deadline,
@@ -77,7 +99,6 @@ const GoalModal = ({ isOpen, onClose, onSave, goal }) => {
     });
   };
 
-  const departments = ['Logistics', 'Manufacturing', 'Corporate', 'R&D', 'Sales'];
   const statuses = ['Active', 'On Track', 'Completed', 'Delayed'];
 
   const inputStyle = (hasError) => ({
@@ -124,9 +145,11 @@ const GoalModal = ({ isOpen, onClose, onSave, goal }) => {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             <div>
               <label style={labelStyle}>Department</label>
-              <select name="department" value={formData.department} onChange={handleChange} style={inputStyle(false)}>
-                {departments.map(d => <option key={d} value={d}>{d}</option>)}
+              <select name="departmentId" value={formData.departmentId} onChange={handleChange} style={inputStyle(errors.departmentId)}>
+                <option value="" disabled>Select department...</option>
+                {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
               </select>
+              {errors.departmentId && <p style={{ fontSize: '12px', color: '#ef4444', marginTop: '4px', marginBottom: 0 }}>{errors.departmentId}</p>}
             </div>
             <div>
               <label style={labelStyle}>Status</label>
@@ -146,12 +169,8 @@ const GoalModal = ({ isOpen, onClose, onSave, goal }) => {
               {errors.targetCo2 && <p style={{ fontSize: '12px', color: '#ef4444', marginTop: '4px', marginBottom: 0 }}>{errors.targetCo2}</p>}
             </div>
             <div>
-              <label style={labelStyle}>Current CO₂ (t)</label>
-              <input type="number" name="currentCo2" value={formData.currentCo2} onChange={handleChange} placeholder="e.g. 390" style={inputStyle(errors.currentCo2)}
-                onFocus={e => { e.target.style.borderColor = '#10b981'; e.target.style.boxShadow = '0 0 0 3px rgba(16,185,129,0.1)'; }}
-                onBlur={e => { e.target.style.borderColor = errors.currentCo2 ? '#fca5a5' : '#e2e8f0'; e.target.style.boxShadow = 'none'; }}
-              />
-              {errors.currentCo2 && <p style={{ fontSize: '12px', color: '#ef4444', marginTop: '4px', marginBottom: 0 }}>{errors.currentCo2}</p>}
+              <label style={labelStyle}>Current CO₂ (t) <span style={{fontSize:'10px', color:'#94a3b8', fontWeight:500}}>(Read-only / Auto)</span></label>
+              <input type="number" name="currentCo2" value={formData.currentCo2} disabled style={{ ...inputStyle(false), backgroundColor: '#f1f5f9' }} />
             </div>
           </div>
 

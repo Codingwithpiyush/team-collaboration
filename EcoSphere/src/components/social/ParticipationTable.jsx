@@ -1,20 +1,59 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, Filter, CheckCircle2, Clock, XCircle } from 'lucide-react';
-import { employeeParticipation } from '../../data/socialData';
+import { BASE_API_URL } from '../../config';
 
 const ParticipationTable = () => {
-  const [data, setData] = useState(employeeParticipation);
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRows, setSelectedRows] = useState([]);
   const [statusFilter, setStatusFilter] = useState('All');
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
 
+  const fetchParticipations = async () => {
+    setLoading(true);
+    try {
+      let url = `${BASE_API_URL}/api/social/participations/`;
+      const params = [];
+      if (statusFilter !== 'All') {
+        params.push(`status=${statusFilter.toLowerCase()}`);
+      }
+      if (params.length > 0) {
+        url += `?${params.join('&')}`;
+      }
+
+      const res = await fetch(url);
+      if (res.ok) {
+        const body = await res.json();
+        const results = Array.isArray(body) ? body : (body.results || []);
+        const mapped = results.map(item => ({
+          id: item.id,
+          employee: item.employee_name || `Employee ${item.employee}`,
+          department: item.employee_id_code || 'EMP',
+          activity: item.activity_title || `Activity ${item.activity}`,
+          proof: item.evidence ? item.evidence.split('/').pop() : 'None',
+          proofUrl: item.evidence || null,
+          points: item.points_awarded || 0,
+          status: item.status ? (item.status.charAt(0).toUpperCase() + item.status.slice(1)) : 'Pending'
+        }));
+        setData(mapped);
+      }
+    } catch (err) {
+      console.error("Failed to load participations", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchParticipations();
+  }, [statusFilter]);
+
   const filteredData = data.filter(item => {
     const matchesSearch = item.employee.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           item.activity.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           item.department.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'All' || item.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    return matchesSearch;
   });
 
   const getStatusBadge = (status) => {
@@ -46,18 +85,28 @@ const ParticipationTable = () => {
     }
   };
 
-  const handleApprove = () => {
-    setData(data.map(row => 
-      selectedRows.includes(row.id) ? { ...row, status: 'Approved' } : row
-    ));
-    setSelectedRows([]);
+  const handleApprove = async () => {
+    try {
+      await Promise.all(selectedRows.map(id =>
+        fetch(`${BASE_API_URL}/api/social/participations/${id}/approve/`, { method: 'POST' })
+      ));
+      setSelectedRows([]);
+      fetchParticipations();
+    } catch (err) {
+      console.error("Error approving participations", err);
+    }
   };
 
-  const handleReject = () => {
-    setData(data.map(row => 
-      selectedRows.includes(row.id) ? { ...row, status: 'Rejected' } : row
-    ));
-    setSelectedRows([]);
+  const handleReject = async () => {
+    try {
+      await Promise.all(selectedRows.map(id =>
+        fetch(`${BASE_API_URL}/api/social/participations/${id}/reject/`, { method: 'POST' })
+      ));
+      setSelectedRows([]);
+      fetchParticipations();
+    } catch (err) {
+      console.error("Error rejecting participations", err);
+    }
   };
 
   return (
@@ -112,7 +161,7 @@ const ParticipationTable = () => {
         </div>
       </div>
       
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto flex-1">
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider">
@@ -125,7 +174,7 @@ const ParticipationTable = () => {
                 />
               </th>
               <th className="px-6 py-3 font-semibold">Employee</th>
-              <th className="px-6 py-3 font-semibold">Department</th>
+              <th className="px-6 py-3 font-semibold">ID Code</th>
               <th className="px-6 py-3 font-semibold">Activity</th>
               <th className="px-6 py-3 font-semibold">Proof Uploaded</th>
               <th className="px-6 py-3 font-semibold text-center">Points Earned</th>
@@ -133,7 +182,11 @@ const ParticipationTable = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 text-sm">
-            {filteredData.map((row) => (
+            {loading ? (
+              <tr>
+                <td colSpan="7" className="px-6 py-8 text-center text-slate-400">Loading participations...</td>
+              </tr>
+            ) : filteredData.map((row) => (
               <tr key={row.id} className="hover:bg-slate-50/50 transition-colors">
                 <td className="px-6 py-4 text-center">
                   <input 
@@ -146,10 +199,14 @@ const ParticipationTable = () => {
                 <td className="px-6 py-4 font-medium text-slate-800">{row.employee}</td>
                 <td className="px-6 py-4 text-slate-600">{row.department}</td>
                 <td className="px-6 py-4 text-slate-600">{row.activity}</td>
-                <td className="px-6 py-4">
-                  <span className="text-blue-600 hover:underline cursor-pointer flex items-center gap-1 text-xs">
-                    {row.proof}
-                  </span>
+                <td className="px-6 py-4 font-medium">
+                  {row.proofUrl ? (
+                    <a href={row.proofUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline flex items-center gap-1 text-xs">
+                      {row.proof}
+                    </a>
+                  ) : (
+                    <span className="text-slate-400 text-xs">None</span>
+                  )}
                 </td>
                 <td className="px-6 py-4 text-center font-medium text-emerald-600">+{row.points}</td>
                 <td className="px-6 py-4 text-center">
@@ -157,9 +214,9 @@ const ParticipationTable = () => {
                 </td>
               </tr>
             ))}
-            {filteredData.length === 0 && (
+            {!loading && filteredData.length === 0 && (
               <tr>
-                <td colSpan="7" className="px-6 py-8 text-center text-slate-500">No records found matching your search.</td>
+                <td colSpan="7" className="px-6 py-8 text-center text-slate-500">No records found.</td>
               </tr>
             )}
           </tbody>
