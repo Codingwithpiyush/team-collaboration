@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from 'react';
-import { ChevronRight, Gamepad2, AlertTriangle, FileText, Gift, Award, HelpCircle } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { ChevronRight, Gamepad2, AlertTriangle, FileText, Gift, Award, HelpCircle, X, RefreshCw } from 'lucide-react';
+import { BASE_API_URL } from '../../config';
 import ChallengeCard from '../../components/gamification/ChallengeCard';
 import ChallengeModal from '../../components/gamification/ChallengeModal';
 import ParticipationTable from '../../components/gamification/ParticipationTable';
@@ -7,6 +8,15 @@ import BadgeGallery from '../../components/gamification/BadgeGallery';
 import RewardCard from '../../components/gamification/RewardCard';
 import RewardModal from '../../components/gamification/RewardModal';
 import Leaderboard from '../../components/gamification/Leaderboard';
+
+import {
+  mapBackendChallengeToFrontend,
+  mapBackendParticipationToFrontend,
+  mapBackendBadgeToFrontend,
+  mapBackendRewardToFrontend,
+  mapBackendEmployeeLeaderboardToFrontend,
+  mapBackendDepartmentLeaderboardToFrontend
+} from '../../utils/gamificationMapper';
 
 const GamificationPage = ({
   activeTab, setActiveTab,
@@ -18,7 +28,6 @@ const GamificationPage = ({
   onApprove, onReject,
   onRedeem, addNotification
 }) => {
-
   const tabs = [
     { name: 'Challenges', icon: Gamepad2 },
     { name: 'Challenge Participation', icon: FileText },
@@ -34,6 +43,13 @@ const GamificationPage = ({
     'Rewards': 'Redeem accumulated XP points for vouchers, coupons, gift cards, or merchandise.',
     'Leaderboard': 'Compare departments and employee ESG points standings in the corporate leaderboards.'
   };
+
+  // API loading / error states
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [employees, setEmployees] = useState([]);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
+  const [categoriesDropdown, setCategoriesDropdown] = useState([]);
 
   // Challenges search and filter states
   const [searchTerm, setSearchTerm] = useState('');
@@ -55,7 +71,122 @@ const GamificationPage = ({
   const [toastMessage, setToastMessage] = useState('');
   const showToast = (msg) => { setToastMessage(msg); setTimeout(() => setToastMessage(''), 3000); };
 
-  // 1. Challenges Filtering
+  // Fetch all gamification data from real endpoints
+  const fetchAllData = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      // 1. Fetch dropdown lists first (employees and categories)
+      const [empRes, catRes] = await Promise.all([
+        fetch(`${BASE_API_URL}/api/users/employees/dropdown/`),
+        fetch(`${BASE_API_URL}/api/users/categories/dropdown/`)
+      ]);
+
+      let empList = [];
+      if (empRes.ok) {
+        empList = await empRes.json();
+        setEmployees(empList);
+      }
+
+      let catList = [];
+      if (catRes.ok) {
+        catList = await catRes.json();
+        setCategoriesDropdown(catList);
+      }
+
+      // Determine employee to check badges for
+      const empId = selectedEmployeeId || (empList.length > 0 ? empList[0].id.toString() : '');
+      if (empList.length > 0 && !selectedEmployeeId) {
+        setSelectedEmployeeId(empList[0].id.toString());
+      }
+
+      // 2. Fetch all other endpoints
+      const badgeGalleryUrl = empId 
+        ? `${BASE_API_URL}/api/gamification/badge-gallery/?employee=${empId}`
+        : `${BASE_API_URL}/api/gamification/badge-gallery/`;
+
+      const [challengesRes, participationRes, badgesRes, rewardsRes, empLeaderboardRes, deptLeaderboardRes] = await Promise.all([
+        fetch(`${BASE_API_URL}/api/gamification/challenges/`),
+        fetch(`${BASE_API_URL}/api/gamification/participations/`),
+        fetch(badgeGalleryUrl),
+        fetch(`${BASE_API_URL}/api/gamification/rewards/`),
+        fetch(`${BASE_API_URL}/api/gamification/leaderboard/employee/`),
+        fetch(`${BASE_API_URL}/api/gamification/leaderboard/department/`)
+      ]);
+
+      if (challengesRes.ok) {
+        const data = await challengesRes.json();
+        const results = Array.isArray(data) ? data : (data.results || []);
+        setChallenges(results.map(mapBackendChallengeToFrontend));
+      }
+
+      if (participationRes.ok) {
+        const data = await participationRes.json();
+        const results = Array.isArray(data) ? data : (data.results || []);
+        setParticipation(results.map(mapBackendParticipationToFrontend));
+      }
+
+      if (badgesRes.ok) {
+        const data = await badgesRes.json();
+        const results = Array.isArray(data) ? data : (data.results || []);
+        setBadges(results.map((b, idx) => mapBackendBadgeToFrontend(b, idx)));
+      }
+
+      if (rewardsRes.ok) {
+        const data = await rewardsRes.json();
+        const results = Array.isArray(data) ? data : (data.results || []);
+        setRewards(results.map(mapBackendRewardToFrontend));
+      }
+
+      // Merge leaderboards
+      if (empLeaderboardRes.ok && deptLeaderboardRes.ok) {
+        const empData = await empLeaderboardRes.json();
+        const deptData = await deptLeaderboardRes.json();
+        const empResults = Array.isArray(empData) ? empData : (empData.results || []);
+        const deptResults = Array.isArray(deptData) ? deptData : (deptData.results || []);
+
+        const mappedEmp = empResults.map(mapBackendEmployeeLeaderboardToFrontend);
+        const mappedDept = deptResults.map(mapBackendDepartmentLeaderboardToFrontend);
+        
+        // Merge and sort by rank
+        const mergedLeaderboard = [...mappedEmp, ...mappedDept].sort((a, b) => b.xp - a.xp);
+        setLeaderboard(mergedLeaderboard);
+      }
+
+    } catch (err) {
+      console.error("Error fetching gamification data:", err);
+      setError("Failed to load gamification data. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Fetch only badge gallery when selected employee changes
+  const fetchBadgeGalleryOnly = async (empId) => {
+    try {
+      const response = await fetch(`${BASE_API_URL}/api/gamification/badge-gallery/?employee=${empId}`);
+      if (response.ok) {
+        const data = await response.json();
+        const results = Array.isArray(data) ? data : (data.results || []);
+        setBadges(results.map((b, idx) => mapBackendBadgeToFrontend(b, idx)));
+      }
+    } catch (err) {
+      console.error("Error reloading badge gallery:", err);
+    }
+  };
+
+  // Load data on mount and update badge list on employee change
+  useEffect(() => {
+    fetchAllData();
+  }, []);
+
+  useEffect(() => {
+    if (selectedEmployeeId) {
+      fetchBadgeGalleryOnly(selectedEmployeeId);
+    }
+  }, [selectedEmployeeId]);
+
+  // Challenges Filtering
   const filteredChallenges = useMemo(() => {
     return challenges.filter(c => {
       const term = searchTerm.toLowerCase();
@@ -92,58 +223,210 @@ const GamificationPage = ({
     setIsFormModalOpen(true);
   };
 
-  const handleDuplicate = (challenge) => {
-    const dup = {
-      ...challenge,
-      id: 'CH-' + Date.now(),
-      title: `${challenge.title} (Copy)`,
-      status: 'Draft',
-      participantsCount: 0
-    };
-    setChallenges(prev => [...prev, dup]);
-    showToast(`Duplicated "${challenge.title}" into draft.`);
-  };
+  const handleDuplicate = async (challenge) => {
+    setIsLoading(true);
+    try {
+      const payload = {
+        title: `${challenge.title} (Copy)`,
+        category: challenge.categoryId,
+        description: challenge.description,
+        start_date: challenge.startDate || new Date().toISOString().split('T')[0],
+        end_date: challenge.endDate || new Date().toISOString().split('T')[0],
+        xp_reward: challenge.xpReward,
+        status: 'draft'
+      };
 
-  const handleDeleteConfirm = () => {
-    if (!deletingChallenge) return;
-    setChallenges(prev => prev.filter(c => c.id !== deletingChallenge.id));
-    showToast(`Deleted challenge "${deletingChallenge.title}"`);
-    setDeletingChallenge(null);
-  };
+      const res = await fetch(`${BASE_API_URL}/api/gamification/challenges/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
 
-  const handleSaveChallenge = (challengeData) => {
-    if (selectedChallenge) {
-      setChallenges(prev => prev.map(c => c.id === challengeData.id ? challengeData : c));
-      showToast(`Updated challenge "${challengeData.title}"`);
-    } else {
-      setChallenges(prev => [challengeData, ...prev]);
-      showToast(`Created new challenge "${challengeData.title}"`);
-      addNotification(`New challenge created: "${challengeData.title}" worth ${challengeData.xpReward} XP.`);
+      if (!res.ok) {
+        showToast("Error duplicating challenge");
+        return;
+      }
+
+      showToast(`Duplicated "${challenge.title}" into draft.`);
+      await fetchAllData();
+    } catch (err) {
+      console.error(err);
+      showToast("Error communicating with server.");
+    } finally {
+      setIsLoading(false);
     }
-    setIsFormModalOpen(false);
   };
 
-  const handleJoinChallengeSubmit = (joinData) => {
-    // 1. Create participation entry
-    const newPart = {
-      id: 'PART-' + Date.now(),
-      employee: joinData.employee,
-      challenge: joinData.challenge,
-      progress: 100, // evidence is uploaded so it is marked fully complete for audit review
-      proof: joinData.proof,
-      xp: joinData.xp,
-      status: 'Pending',
-      remarks: joinData.remarks
-    };
+  const handleDeleteConfirm = async () => {
+    if (!deletingChallenge) return;
+    setIsLoading(true);
+    try {
+      const res = await fetch(`${BASE_API_URL}/api/gamification/challenges/${deletingChallenge.id}/`, {
+        method: 'DELETE'
+      });
 
-    setParticipation(prev => [newPart, ...prev]);
+      if (!res.ok) {
+        showToast("Error deleting challenge");
+        return;
+      }
 
-    // 2. Increment challenge participant count
-    setChallenges(prev => prev.map(c => c.id === joinData.challengeId ? { ...c, participantsCount: c.participantsCount + 1 } : c));
+      showToast(`Deleted challenge "${deletingChallenge.title}"`);
+      setDeletingChallenge(null);
+      await fetchAllData();
+    } catch (err) {
+      console.error(err);
+      showToast("Error communicating with server.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-    showToast(`Successfully registered "${joinData.employee}" to join challenge.`);
-    addNotification(`Challenge joined: ${joinData.employee} submitted proof for "${joinData.challenge}".`);
-    setIsFormModalOpen(false);
+  const handleSaveChallenge = async (challengeData) => {
+    setIsLoading(true);
+    try {
+      const payload = {
+        title: challengeData.title,
+        category: parseInt(challengeData.categoryId),
+        description: challengeData.description,
+        start_date: challengeData.startDate,
+        end_date: challengeData.endDate,
+        xp_reward: challengeData.xpReward,
+        status: challengeData.status.toLowerCase() === 'archived' ? 'cancelled' : challengeData.status.toLowerCase()
+      };
+
+      let res;
+      if (selectedChallenge) {
+        // Editing existing challenge
+        res = await fetch(`${BASE_API_URL}/api/gamification/challenges/${selectedChallenge.id}/`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        });
+      } else {
+        // Creating new challenge
+        res = await fetch(`${BASE_API_URL}/api/gamification/challenges/`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        });
+      }
+
+      if (!res.ok) {
+        const errData = await res.json();
+        const message = errData.detail || errData.non_field_errors?.[0] || Object.values(errData)[0]?.[0] || 'Failed to save challenge';
+        showToast(`Error: ${message}`);
+        return;
+      }
+
+      showToast(selectedChallenge ? `Updated challenge "${challengeData.title}"` : `Created new challenge "${challengeData.title}"`);
+      if (!selectedChallenge) {
+        addNotification(`New challenge created: "${challengeData.title}" worth ${challengeData.xpReward} XP.`);
+      }
+      setIsFormModalOpen(false);
+      await fetchAllData();
+    } catch (err) {
+      console.error(err);
+      showToast("Error communicating with server.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleJoinChallengeSubmit = async (joinData) => {
+    setIsLoading(true);
+    try {
+      const res = await fetch(`${BASE_API_URL}/api/gamification/challenges/${joinData.challengeId}/join/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          employee: parseInt(joinData.employeeId)
+        })
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        const message = errData.detail || errData.non_field_errors?.[0] || Object.values(errData)[0]?.[0] || 'Failed to join challenge';
+        showToast(`Error: ${message}`);
+        return;
+      }
+
+      showToast(`Successfully registered "${joinData.employeeName}" to join challenge.`);
+      addNotification(`Challenge joined: ${joinData.employeeName} submitted proof for "${joinData.challenge}".`);
+      setIsFormModalOpen(false);
+      await fetchAllData();
+    } catch (err) {
+      console.error(err);
+      showToast("Error communicating with server.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Submission approval and rejection API requests
+  const handleApproveParticipation = async (partId) => {
+    setIsLoading(true);
+    try {
+      const approverId = employees[0]?.id || 1;
+      const res = await fetch(`${BASE_API_URL}/api/gamification/participations/${partId}/approve/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ approved_by: approverId })
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        showToast(`Error: ${errData.detail || 'Failed to approve submission'}`);
+        return;
+      }
+
+      showToast("Approved submission successfully.");
+      addNotification(`Submission Approved: ID #${partId} approved by ESG Auditor.`);
+      await fetchAllData();
+    } catch (err) {
+      console.error(err);
+      showToast("Error communicating with server.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRejectParticipation = async (partId) => {
+    setIsLoading(true);
+    try {
+      const approverId = employees[0]?.id || 1;
+      const res = await fetch(`${BASE_API_URL}/api/gamification/participations/${partId}/reject/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ approved_by: approverId })
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        showToast(`Error: ${errData.detail || 'Failed to reject submission'}`);
+        return;
+      }
+
+      showToast("Rejected submission successfully.");
+      addNotification(`Submission Rejected: ID #${partId} rejected by ESG Auditor.`);
+      await fetchAllData();
+    } catch (err) {
+      console.error(err);
+      showToast("Error communicating with server.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Reward Redemption confirm
@@ -152,12 +435,38 @@ const GamificationPage = ({
     setIsRewardModalOpen(true);
   };
 
-  const handleRedeemConfirm = (employee, rewardId) => {
-    const res = onRedeem(employee, rewardId);
-    if (res && res.success) {
-      setIsRewardModalOpen(false);
+  const handleRedeemConfirm = async (employeeId, rewardId) => {
+    try {
+      const res = await fetch(`${BASE_API_URL}/api/gamification/redemptions/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          employee: parseInt(employeeId),
+          reward: parseInt(rewardId)
+        })
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        const message = errData.detail || errData.non_field_errors?.[0] || Object.values(errData)[0]?.[0] || 'Redemption failed';
+        return { success: false, error: message };
+      }
+
+      const empObj = employees.find(e => e.id.toString() === employeeId.toString());
+      const empName = empObj ? empObj.name : 'Employee';
+      const rewardObj = rewards.find(r => r.id === rewardId);
+      const rewardName = rewardObj ? rewardObj.name : 'Reward';
+
+      showToast("Redeemed reward successfully!");
+      addNotification(`Reward Redeemed: ${empName} successfully redeemed "${rewardName}".`);
+      await fetchAllData();
+      return { success: true };
+    } catch (err) {
+      console.error(err);
+      return { success: false, error: "Server connection error" };
     }
-    return res;
   };
 
   const renderActiveTabContent = () => {
@@ -260,12 +569,39 @@ const GamificationPage = ({
         return (
           <ParticipationTable 
             participation={participation} 
-            onApprove={onApprove} 
-            onReject={onReject} 
+            onApprove={handleApproveParticipation} 
+            onReject={handleRejectParticipation} 
           />
         );
       case 'Badges':
-        return <BadgeGallery badges={badges} />;
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            {/* Inspector Selection Dropdown */}
+            {employees.length > 0 && (
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: '12px',
+                padding: '16px 20px', borderRadius: '16px', backgroundColor: '#fff7ed',
+                border: '1px solid #ffedd5', width: 'fit-content'
+              }}>
+                <span style={{ fontSize: '14px', fontWeight: 700, color: '#c2410c' }}>Inspect Badge Progress:</span>
+                <select
+                  value={selectedEmployeeId}
+                  onChange={e => setSelectedEmployeeId(e.target.value)}
+                  style={{
+                    padding: '8px 16px', borderRadius: '12px', border: '1px solid #fdba74',
+                    fontSize: '14px', fontWeight: 600, color: '#c2410c',
+                    outline: 'none', backgroundColor: '#fff', cursor: 'pointer'
+                  }}
+                >
+                  {employees.map(e => (
+                    <option key={e.id} value={e.id}>{e.name} ({e.designation})</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            <BadgeGallery badges={badges} />
+          </div>
+        );
       case 'Rewards':
         return (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -288,11 +624,23 @@ const GamificationPage = ({
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', position: 'relative' }}>
+      {/* Loading Overlay */}
+      {isLoading && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 1000,
+          backgroundColor: 'rgba(255,255,255,0.7)', backdropFilter: 'blur(2px)',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px'
+        }}>
+          <RefreshCw className="animate-spin" size={32} style={{ color: '#ea580c' }} />
+          <span style={{ fontSize: '15px', fontWeight: 600, color: '#ea580c' }}>Synchronizing ESG Data...</span>
+        </div>
+      )}
+
       {/* Toast message */}
       {toastMessage && (
         <div style={{
-          position: 'fixed', bottom: '16px', right: '16px', zIndex: 50,
+          position: 'fixed', bottom: '16px', right: '16px', zIndex: 9999,
           backgroundColor: '#0f172a', color: '#fff', padding: '12px 20px',
           borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
           display: 'flex', alignItems: 'center', gap: '12px', fontSize: '14px', fontWeight: 500
@@ -304,16 +652,47 @@ const GamificationPage = ({
 
       {/* Breadcrumb */}
       <div style={{
-        display: 'inline-flex', alignItems: 'center', gap: '8px',
-        fontSize: '14px', fontWeight: 500, color: '#64748b',
-        backgroundColor: '#fff', padding: '10px 16px', borderRadius: '12px',
-        border: '1px solid #f1f5f9', boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
-        width: 'fit-content'
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px'
       }}>
-        <span style={{ color: '#94a3b8' }}>Gamification</span>
-        <ChevronRight size={14} style={{ color: '#cbd5e1' }} />
-        <span style={{ color: '#1e293b', fontWeight: 600 }}>{activeTab}</span>
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: '8px',
+          fontSize: '14px', fontWeight: 500, color: '#64748b',
+          backgroundColor: '#fff', padding: '10px 16px', borderRadius: '12px',
+          border: '1px solid #f1f5f9', boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+          width: 'fit-content'
+        }}>
+          <span style={{ color: '#94a3b8' }}>Gamification</span>
+          <ChevronRight size={14} style={{ color: '#cbd5e1' }} />
+          <span style={{ color: '#1e293b', fontWeight: 600 }}>{activeTab}</span>
+        </div>
+
+        {/* Refresh button */}
+        <button
+          onClick={fetchAllData}
+          title="Refresh Data"
+          style={{
+            display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', borderRadius: '12px',
+            border: '1px solid #e2e8f0', backgroundColor: '#fff', color: '#475569', fontSize: '13px',
+            fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s', boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
+          }}
+          onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f8fafc'}
+          onMouseLeave={e => e.currentTarget.style.backgroundColor = '#fff'}
+        >
+          <RefreshCw size={14} />
+          <span>Refresh</span>
+        </button>
       </div>
+
+      {/* Error Alert */}
+      {error && (
+        <div style={{
+          padding: '16px', borderRadius: '12px', backgroundColor: '#fef2f2',
+          border: '1px solid #fecaca', color: '#dc2626', display: 'flex', alignItems: 'center', gap: '12px'
+        }}>
+          <AlertTriangle size={20} />
+          <div style={{ fontSize: '14px', fontWeight: 600 }}>{error}</div>
+        </div>
+      )}
 
       {/* Page Title */}
       <div>
@@ -366,6 +745,8 @@ const GamificationPage = ({
         challenge={selectedChallenge}
         mode={modalMode}
         onJoinSubmit={handleJoinChallengeSubmit}
+        employees={employees}
+        categories={categoriesDropdown.filter(c => c.type === 'challenges')}
       />
 
       {/* Reward Confirmation Modal */}
@@ -375,6 +756,7 @@ const GamificationPage = ({
         reward={selectedReward}
         leaderboard={leaderboard}
         onConfirm={handleRedeemConfirm}
+        employees={employees}
       />
 
       {/* View Challenge Details Modal */}

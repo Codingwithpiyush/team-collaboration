@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 
-const AuditModal = ({ isOpen, onClose, onSave, audit }) => {
+const AuditModal = ({ isOpen, onClose, onSave, audit, employees = [], departments = [] }) => {
   const [formData, setFormData] = useState({
     title: '',
-    department: 'Manufacturing',
+    department: '',
     auditor: '',
     date: new Date().toISOString().split('T')[0],
     type: 'Environmental Audit',
     description: '',
-    status: 'Scheduled'
+    status: 'Scheduled',
+    score: '100.0',
+    findings: 'No Issues'
   });
 
   const [errors, setErrors] = useState({});
@@ -18,26 +20,30 @@ const AuditModal = ({ isOpen, onClose, onSave, audit }) => {
     if (audit) {
       setFormData({
         title: audit.title || '',
-        department: audit.department || 'Manufacturing',
-        auditor: audit.auditor || '',
+        department: audit.departmentId || audit.department || '',
+        auditor: audit.auditorId || audit.auditor || '',
         date: audit.date || '',
         type: audit.type || 'Environmental Audit',
         description: audit.description || '',
-        status: audit.status || 'Scheduled'
+        status: audit.status || 'Scheduled',
+        score: audit.score !== undefined ? String(audit.score) : '100.0',
+        findings: audit.findings || 'No Issues'
       });
     } else {
       setFormData({
         title: '',
-        department: 'Manufacturing',
-        auditor: '',
+        department: departments && departments.length > 0 ? departments[0].id : '',
+        auditor: employees && employees.length > 0 ? employees[0].id : '',
         date: new Date().toISOString().split('T')[0],
         type: 'Environmental Audit',
         description: '',
-        status: 'Scheduled'
+        status: 'Scheduled',
+        score: '100.0',
+        findings: 'No Issues'
       });
     }
     setErrors({});
-  }, [audit, isOpen]);
+  }, [audit, isOpen, employees, departments]);
 
   if (!isOpen) return null;
 
@@ -49,8 +55,10 @@ const AuditModal = ({ isOpen, onClose, onSave, audit }) => {
   const validate = () => {
     const newErrors = {};
     if (!formData.title.trim()) newErrors.title = 'Audit Title is required';
-    if (!formData.auditor.trim()) newErrors.auditor = 'Auditor name is required';
+    if (!formData.auditor) newErrors.auditor = 'Auditor is required';
+    if (!formData.department) newErrors.department = 'Department is required';
     if (!formData.date) newErrors.date = 'Audit Date is required';
+    if (isNaN(parseFloat(formData.score))) newErrors.score = 'Score must be a valid number';
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -61,19 +69,20 @@ const AuditModal = ({ isOpen, onClose, onSave, audit }) => {
     if (!validate()) return;
 
     onSave({
-      id: audit ? audit.id : 'AUD-' + Date.now(),
+      id: audit ? audit.id : undefined,
       title: formData.title.trim(),
-      department: formData.department,
-      auditor: formData.auditor.trim(),
+      department: isNaN(parseInt(formData.department)) ? formData.department : parseInt(formData.department),
+      auditor: isNaN(parseInt(formData.auditor)) ? formData.auditor : parseInt(formData.auditor),
       date: formData.date,
       type: formData.type,
       description: formData.description.trim(),
       status: formData.status,
-      findings: audit ? audit.findings : 'No Issues' // Default for new audits
+      score: parseFloat(formData.score),
+      findings: formData.findings.trim()
     });
   };
 
-  const departments = ['Manufacturing', 'Procurement', 'HR', 'IT', 'Logistics', 'Corporate', 'R&D', 'Sales'];
+  const defaultDepts = ['Manufacturing', 'Procurement', 'HR', 'IT', 'Logistics', 'Corporate', 'R&D', 'Sales'];
   const auditTypes = ['Environmental Audit', 'Supply Chain Audit', 'Internal Audit', 'Compliance Audit', 'Safety Audit'];
   const statuses = ['Completed', 'Under Review', 'Scheduled', 'Cancelled'];
 
@@ -129,9 +138,17 @@ const AuditModal = ({ isOpen, onClose, onSave, audit }) => {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             <div>
               <label style={labelStyle}>Department</label>
-              <select name="department" value={formData.department} onChange={handleChange} style={inputStyle(false)}>
-                {departments.map(d => <option key={d} value={d}>{d}</option>)}
-              </select>
+              {departments && departments.length > 0 ? (
+                <select name="department" value={formData.department} onChange={handleChange} style={inputStyle(errors.department)}>
+                  <option value="">Select Department</option>
+                  {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                </select>
+              ) : (
+                <select name="department" value={formData.department} onChange={handleChange} style={inputStyle(errors.department)}>
+                  {defaultDepts.map(d => <option key={d} value={d}>{d}</option>)}
+                </select>
+              )}
+              {errors.department && <p style={{ fontSize: '12px', color: '#ef4444', marginTop: '4px', marginBottom: 0 }}>{errors.department}</p>}
             </div>
             <div>
               <label style={labelStyle}>Audit Type</label>
@@ -143,17 +160,22 @@ const AuditModal = ({ isOpen, onClose, onSave, audit }) => {
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             <div>
-              <label style={labelStyle}>Auditor Name</label>
-              <input 
-                type="text" 
-                name="auditor"
-                value={formData.auditor}
-                onChange={handleChange}
-                placeholder="e.g. S. Nair"
-                style={inputStyle(errors.auditor)}
-                onFocus={e => { e.target.style.borderColor = '#8b5cf6'; e.target.style.boxShadow = '0 0 0 3px rgba(139,92,246,0.1)'; }}
-                onBlur={e => { e.target.style.borderColor = errors.auditor ? '#fca5a5' : '#e2e8f0'; e.target.style.boxShadow = 'none'; }}
-              />
+              <label style={labelStyle}>Auditor</label>
+              {employees && employees.length > 0 ? (
+                <select name="auditor" value={formData.auditor} onChange={handleChange} style={inputStyle(errors.auditor)}>
+                  <option value="">Select Auditor</option>
+                  {employees.map(emp => <option key={emp.id} value={emp.id}>{emp.name}</option>)}
+                </select>
+              ) : (
+                <input 
+                  type="text" 
+                  name="auditor"
+                  value={formData.auditor}
+                  onChange={handleChange}
+                  placeholder="e.g. S. Nair"
+                  style={inputStyle(errors.auditor)}
+                />
+              )}
               {errors.auditor && <p style={{ fontSize: '12px', color: '#ef4444', marginTop: '4px', marginBottom: 0 }}>{errors.auditor}</p>}
             </div>
             <div>
@@ -171,15 +193,41 @@ const AuditModal = ({ isOpen, onClose, onSave, audit }) => {
             </div>
           </div>
 
-          <div>
-            <label style={labelStyle}>Audit Status</label>
-            <select name="status" value={formData.status} onChange={handleChange} style={inputStyle(false)}>
-              {statuses.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            <div>
+              <label style={labelStyle}>Audit Status</label>
+              <select name="status" value={formData.status} onChange={handleChange} style={inputStyle(false)}>
+                {statuses.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={labelStyle}>Audit Score</label>
+              <input 
+                type="text" 
+                name="score"
+                value={formData.score}
+                onChange={handleChange}
+                placeholder="e.g. 95.0"
+                style={inputStyle(errors.score)}
+              />
+              {errors.score && <p style={{ fontSize: '12px', color: '#ef4444', marginTop: '4px', marginBottom: 0 }}>{errors.score}</p>}
+            </div>
           </div>
 
           <div>
-            <label style={labelStyle}>Description / Scope</label>
+            <label style={labelStyle}>Audit Findings Summary</label>
+            <input 
+              type="text"
+              name="findings"
+              value={formData.findings}
+              onChange={handleChange}
+              placeholder="e.g. Minor waste ledger mismatch rectified."
+              style={inputStyle(false)}
+            />
+          </div>
+
+          <div>
+            <label style={labelStyle}>Description / Scope Details</label>
             <textarea 
               name="description" 
               value={formData.description} 
@@ -197,8 +245,6 @@ const AuditModal = ({ isOpen, onClose, onSave, audit }) => {
               type="button" 
               onClick={onClose} 
               style={{ padding: '10px 20px', borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '14px', fontWeight: 600, color: '#475569', backgroundColor: '#fff', cursor: 'pointer' }}
-              onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f8fafc'}
-              onMouseLeave={e => e.currentTarget.style.backgroundColor = '#fff'}
             >
               Cancel
             </button>
@@ -210,8 +256,6 @@ const AuditModal = ({ isOpen, onClose, onSave, audit }) => {
                 backgroundColor: '#7c3aed', cursor: 'pointer',
                 boxShadow: '0 4px 6px -1px rgba(124,58,237,0.2)'
               }}
-              onMouseEnter={e => e.currentTarget.style.backgroundColor = '#6d28d9'}
-              onMouseLeave={e => e.currentTarget.style.backgroundColor = '#7c3aed'}
             >
               {audit ? 'Save Changes' : 'Create Audit'}
             </button>

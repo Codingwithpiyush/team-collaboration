@@ -1,10 +1,13 @@
 import React, { useState, useMemo } from 'react';
-import { Search, Send, CheckCircle2, Eye, X, Mail } from 'lucide-react';
+import { Search, Send, CheckCircle2, Eye, X, Mail, Plus } from 'lucide-react';
+import { BASE_API_URL } from '../../config';
 
-const AcknowledgementTable = ({ acknowledgements, setAcknowledgements, addNotification }) => {
+const AcknowledgementTable = ({ acknowledgements, setAcknowledgements, addNotification, employees = [], policies = [], refresh }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [viewingAck, setViewingAck] = useState(null);
   const [toastMessage, setToastMessage] = useState('');
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [newAck, setNewAck] = useState({ policyId: '', employeeId: '' });
 
   const showToast = (message) => {
     setToastMessage(message);
@@ -16,9 +19,9 @@ const AcknowledgementTable = ({ acknowledgements, setAcknowledgements, addNotifi
     return acknowledgements.filter(ack => {
       const term = searchTerm.toLowerCase();
       return (
-        ack.employee.toLowerCase().includes(term) ||
-        ack.policy.toLowerCase().includes(term) ||
-        ack.status.toLowerCase().includes(term)
+        (ack.employee && ack.employee.toLowerCase().includes(term)) ||
+        (ack.policy && ack.policy.toLowerCase().includes(term)) ||
+        (ack.status && ack.status.toLowerCase().includes(term))
       );
     });
   }, [acknowledgements, searchTerm]);
@@ -28,19 +31,62 @@ const AcknowledgementTable = ({ acknowledgements, setAcknowledgements, addNotifi
     const ack = acknowledgements.find(a => a.id === id);
     if (!ack) return;
 
-    setAcknowledgements(prev => prev.map(a => a.id === id ? { ...a, reminderSent: 'Yes' } : a));
+    // Local/mock notification dispatch since backend doesn't trigger email
     showToast(`Reminder email dispatched to ${ack.employee}`);
     addNotification(`Policy acknowledgement reminder sent to ${ack.employee} for "${ack.policy}"`);
   };
 
-  const handleMarkComplete = (id) => {
+  const handleMarkComplete = async (id) => {
     const ack = acknowledgements.find(a => a.id === id);
     if (!ack) return;
 
-    const today = new Date().toISOString().split('T')[0];
-    setAcknowledgements(prev => prev.map(a => a.id === id ? { ...a, status: 'Completed', acknowledgedDate: today } : a));
-    showToast(`Acknowledgement marked Complete for ${ack.employee}`);
-    addNotification(`Policy acknowledged: ${ack.employee} completed signing "${ack.policy}"`);
+    try {
+      const res = await fetch(`${BASE_API_URL}/api/governance/policies/${ack.policyId}/acknowledge/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ employee: ack.employeeId })
+      });
+      if (res.ok) {
+        showToast(`Acknowledgement marked Complete for ${ack.employee}`);
+        addNotification(`Policy acknowledged: ${ack.employee} completed signing "${ack.policy}"`);
+        if (refresh) refresh();
+      } else {
+        const err = await res.json();
+        showToast(`Failed: ${JSON.stringify(err)}`);
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("Failed to complete acknowledgement");
+    }
+  };
+
+  const handleRecordSignoff = async (e) => {
+    e.preventDefault();
+    if (!newAck.policyId || !newAck.employeeId) {
+      showToast("Please select both a policy and an employee");
+      return;
+    }
+
+    try {
+      const res = await fetch(`${BASE_API_URL}/api/governance/policies/${newAck.policyId}/acknowledge/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ employee: parseInt(newAck.employeeId) })
+      });
+
+      if (res.ok) {
+        showToast("Policy sign-off successfully recorded");
+        setIsAddModalOpen(false);
+        setNewAck({ policyId: '', employeeId: '' });
+        if (refresh) refresh();
+      } else {
+        const err = await res.json();
+        showToast(`Failed: ${err.detail || JSON.stringify(err)}`);
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("Error recording policy sign-off");
+    }
   };
 
   const getStatusBadge = (status) => {
@@ -78,8 +124,21 @@ const AcknowledgementTable = ({ acknowledgements, setAcknowledgements, addNotifi
 
       {/* Toolbar */}
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
-        <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#334155', margin: 0 }}>Policy Acknowledgement Tracking</h3>
+          <button
+            onClick={() => setIsAddModalOpen(true)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', borderRadius: '8px',
+              backgroundColor: '#7c3aed', color: '#ffffff', fontSize: '13px', fontWeight: 600, border: 'none',
+              cursor: 'pointer', transition: 'background-color 0.2s'
+            }}
+            onMouseEnter={e => e.currentTarget.style.backgroundColor = '#6d28d9'}
+            onMouseLeave={e => e.currentTarget.style.backgroundColor = '#7c3aed'}
+          >
+            <Plus size={14} />
+            <span>Record Sign-off</span>
+          </button>
         </div>
 
         <div style={{ position: 'relative', width: '280px', maxWidth: '100%' }}>
@@ -208,6 +267,74 @@ const AcknowledgementTable = ({ acknowledgements, setAcknowledgements, addNotifi
           </table>
         </div>
       </div>
+
+      {/* Record Sign-off Modal */}
+      {isAddModalOpen && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(15,23,42,0.4)', backdropFilter: 'blur(4px)' }} onClick={() => setIsAddModalOpen(false)}></div>
+          <form onSubmit={handleRecordSignoff} style={{
+            backgroundColor: '#fff', borderRadius: '16px', width: '100%', maxWidth: '440px',
+            padding: '24px', boxShadow: '0 20px 60px rgba(0,0,0,0.15)', border: '1px solid #e2e8f0',
+            zIndex: 10, margin: '0 16px', position: 'relative'
+          }}>
+            <button
+              type="button"
+              onClick={() => setIsAddModalOpen(false)}
+              style={{ position: 'absolute', top: '16px', right: '16px', padding: '6px', borderRadius: '50%', border: 'none', backgroundColor: 'transparent', cursor: 'pointer', color: '#94a3b8' }}
+            >
+              <X size={20} />
+            </button>
+
+            <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#1e293b', marginBottom: '20px', marginTop: 0 }}>Record Policy Sign-off</h3>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '14px', fontWeight: 600, color: '#334155', marginBottom: '6px' }}>Select Policy</label>
+                <select
+                  value={newAck.policyId}
+                  onChange={e => setNewAck(prev => ({ ...prev, policyId: e.target.value }))}
+                  style={{ width: '100%', padding: '10px 16px', borderRadius: '12px', border: '1px solid #e2e8f0', backgroundColor: '#f8fafc', fontSize: '14px', outline: 'none' }}
+                >
+                  <option value="">Select a Policy</option>
+                  {policies.map(p => (
+                    <option key={p.id} value={p.id}>{p.code} - {p.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '14px', fontWeight: 600, color: '#334155', marginBottom: '6px' }}>Select Employee</label>
+                <select
+                  value={newAck.employeeId}
+                  onChange={e => setNewAck(prev => ({ ...prev, employeeId: e.target.value }))}
+                  style={{ width: '100%', padding: '10px 16px', borderRadius: '12px', border: '1px solid #e2e8f0', backgroundColor: '#f8fafc', fontSize: '14px', outline: 'none' }}
+                >
+                  <option value="">Select an Employee</option>
+                  {employees.map(emp => (
+                    <option key={emp.id} value={emp.id}>{emp.name} ({emp.department_name})</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', paddingTop: '20px', borderTop: '1px solid #f1f5f9', marginTop: '24px' }}>
+              <button
+                type="button"
+                onClick={() => setIsAddModalOpen(false)}
+                style={{ padding: '10px 16px', borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '14px', fontWeight: 600, color: '#475569', backgroundColor: '#ffffff', cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                style={{ padding: '10px 16px', borderRadius: '12px', border: 'none', fontSize: '14px', fontWeight: 600, color: '#ffffff', backgroundColor: '#7c3aed', cursor: 'pointer', boxShadow: '0 4px 6px -1px rgba(124,58,237,0.2)' }}
+              >
+                Submit Sign-off
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {/* Details Modal */}
       {viewingAck && (

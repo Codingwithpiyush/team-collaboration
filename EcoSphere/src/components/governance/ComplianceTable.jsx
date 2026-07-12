@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { Plus, Edit, Trash2, Search, Eye, CheckCircle, AlertTriangle, Calendar, X } from 'lucide-react';
 import ComplianceModal from './ComplianceModal';
+import { BASE_API_URL } from '../../config';
 
-const ComplianceTable = ({ complianceIssues, setComplianceIssues, addNotification }) => {
+const ComplianceTable = ({ complianceIssues, setComplianceIssues, addNotification, employees = [], departments = [], refresh }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingIssue, setEditingIssue] = useState(null);
@@ -20,11 +21,11 @@ const ComplianceTable = ({ complianceIssues, setComplianceIssues, addNotificatio
     return complianceIssues.filter(issue => {
       const term = searchTerm.toLowerCase();
       return (
-        issue.issue.toLowerCase().includes(term) ||
-        issue.department.toLowerCase().includes(term) ||
-        issue.owner.toLowerCase().includes(term) ||
-        issue.status.toLowerCase().includes(term) ||
-        issue.severity.toLowerCase().includes(term)
+        (issue.issue && issue.issue.toLowerCase().includes(term)) ||
+        (issue.department && issue.department.toLowerCase().includes(term)) ||
+        (issue.owner && issue.owner.toLowerCase().includes(term)) ||
+        (issue.status && issue.status.toLowerCase().includes(term)) ||
+        (issue.severity && issue.severity.toLowerCase().includes(term))
       );
     });
   }, [complianceIssues, searchTerm]);
@@ -32,41 +33,112 @@ const ComplianceTable = ({ complianceIssues, setComplianceIssues, addNotificatio
   // Actions
   const handleOpenNewModal = () => {
     setEditingIssue(null);
-    setIsModalOpen(isOpen => true);
+    setIsModalOpen(true);
   };
 
   const handleOpenEditModal = (issue) => {
     setEditingIssue(issue);
-    setIsModalOpen(isOpen => true);
+    setIsModalOpen(true);
   };
 
-  const handleResolveIssue = (id) => {
+  const handleResolveIssue = async (id) => {
     const issue = complianceIssues.find(i => i.id === id);
     if (!issue) return;
 
-    setComplianceIssues(prev => prev.map(i => i.id === id ? { ...i, status: 'Resolved' } : i));
-    showToast(`Issue "${issue.issue}" marked as Resolved`);
-    addNotification(`Compliance issue resolved: ${issue.issue} (${issue.department})`);
+    try {
+      const res = await fetch(`${BASE_API_URL}/api/governance/issues/${id}/resolve/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resolution_notes: 'Resolved via dashboard interface.' })
+      });
+      if (res.ok) {
+        showToast(`Issue "${issue.issue}" marked as Resolved`);
+        addNotification(`Compliance issue resolved: ${issue.issue} (${issue.department})`);
+        if (refresh) refresh();
+      } else {
+        const err = await res.json();
+        showToast(`Failed: ${JSON.stringify(err)}`);
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("Failed to resolve compliance issue");
+    }
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (!deletingIssue) return;
-    setComplianceIssues(prev => prev.filter(i => i.id !== deletingIssue.id));
-    showToast(`Deleted compliance issue "${deletingIssue.issue}"`);
+    try {
+      const res = await fetch(`${BASE_API_URL}/api/governance/issues/${deletingIssue.id}/`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        showToast(`Deleted compliance issue "${deletingIssue.issue}"`);
+        if (refresh) refresh();
+      } else {
+        showToast("Failed to delete compliance issue");
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("Error occurred during deletion");
+    }
     setDeletingIssue(null);
   };
 
-  const handleSaveIssue = (issueData) => {
-    if (editingIssue) {
-      setComplianceIssues(prev => prev.map(i => i.id === issueData.id ? issueData : i));
-      showToast(`Updated issue "${issueData.issue}"`);
-      if (issueData.status === 'Resolved' && editingIssue.status !== 'Resolved') {
-        addNotification(`Compliance issue resolved: ${issueData.issue} (${issueData.department})`);
+  const mapStatusToBackend = (status) => {
+    const map = {
+      'Open': 'open',
+      'In Progress': 'in_progress',
+      'Resolved': 'resolved',
+      'Overdue': 'overdue'
+    };
+    return map[status] || 'open';
+  };
+
+  const handleSaveIssue = async (issueData) => {
+    const payload = {
+      title: issueData.issue,
+      description: issueData.description || 'No description provided.',
+      severity: issueData.severity.toLowerCase(),
+      status: mapStatusToBackend(issueData.status),
+      assigned_to: issueData.owner,
+      department: issueData.department,
+      due_date: issueData.dueDate
+    };
+
+    try {
+      if (editingIssue) {
+        const res = await fetch(`${BASE_API_URL}/api/governance/issues/${editingIssue.id}/`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          showToast(`Updated issue "${issueData.issue}"`);
+          if (issueData.status === 'Resolved' && editingIssue.status !== 'Resolved') {
+            addNotification(`Compliance issue resolved: ${issueData.issue}`);
+          }
+        } else {
+          const errData = await res.json();
+          showToast(`Failed: ${JSON.stringify(errData)}`);
+        }
+      } else {
+        const res = await fetch(`${BASE_API_URL}/api/governance/issues/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          showToast(`Raised new compliance issue "${issueData.issue}"`);
+          addNotification(`New compliance issue raised: ${issueData.issue}`);
+        } else {
+          const errData = await res.json();
+          showToast(`Failed: ${JSON.stringify(errData)}`);
+        }
       }
-    } else {
-      setComplianceIssues(prev => [issueData, ...prev]);
-      showToast(`Raised new compliance issue "${issueData.issue}"`);
-      addNotification(`New compliance issue raised: ${issueData.issue} under ${issueData.department}`);
+      if (refresh) refresh();
+    } catch (err) {
+      console.error(err);
+      showToast("Error saving compliance issue");
     }
     setIsModalOpen(false);
     setEditingIssue(null);
@@ -291,6 +363,8 @@ const ComplianceTable = ({ complianceIssues, setComplianceIssues, addNotificatio
         onClose={() => { setIsModalOpen(false); setEditingIssue(null); }}
         onSave={handleSaveIssue}
         issue={editingIssue}
+        employees={employees}
+        departments={departments}
       />
 
       {/* View Details Modal */}
