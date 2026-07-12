@@ -21,7 +21,7 @@ function App() {
   const totalProgress = goals.reduce((acc, goal) => {
     const target = parseFloat(goal.targetCo2);
     const current = parseFloat(goal.currentCo2);
-    const progress = target > 0 ? Math.round((current / target) * 100) : 0;
+    const progress = target > 0 ? Math.min(Math.round((current / target) * 100), 100) : 0;
     return acc + progress;
   }, 0);
   const environmentalScore = goals.length > 0 ? Math.round(totalProgress / goals.length) : 0;

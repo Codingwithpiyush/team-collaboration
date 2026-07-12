@@ -54,6 +54,9 @@ const GoalModal = ({ isOpen, onClose, onSave, goal }) => {
     if (isNaN(target) || target <= 0) newErrors.targetCo2 = 'Target CO₂ must be a positive number';
     const current = parseFloat(formData.currentCo2);
     if (isNaN(current) || current < 0) newErrors.currentCo2 = 'Current CO₂ must be a non-negative number';
+    if (!isNaN(target) && target > 0 && !isNaN(current) && current > target) {
+      newErrors.currentCo2 = 'Current CO₂ cannot exceed Target CO₂';
+    }
     if (!formData.deadline) newErrors.deadline = 'Deadline is required';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;

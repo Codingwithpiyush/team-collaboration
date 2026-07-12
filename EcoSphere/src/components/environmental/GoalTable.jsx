@@ -326,8 +326,8 @@ const GoalTable = ({ goals, setGoals }) => {
             <tbody>
               {filteredGoals.length > 0 ? (
                 filteredGoals.map((goal) => {
-                  const progressVal = goal.targetCo2 > 0 ? Math.round((goal.currentCo2 / goal.targetCo2) * 100) : 0;
-                  const cappedProgress = Math.min(progressVal, 100);
+                  const rawProgress = goal.targetCo2 > 0 ? Math.round((goal.currentCo2 / goal.targetCo2) * 100) : 0;
+                  const progressVal = Math.min(rawProgress, 100);
                   const isChecked = selectedGoalIds.includes(goal.id);
 
                   return (
@@ -375,7 +375,7 @@ const GoalTable = ({ goals, setGoals }) => {
                             borderRadius: '9999px', overflow: 'hidden', flexShrink: 0
                           }}>
                             <div style={{
-                              width: `${cappedProgress}%`, height: '100%',
+                              width: `${progressVal}%`, height: '100%',
                               background: 'linear-gradient(to right, #34d399, #10b981)',
                               borderRadius: '9999px',
                               transition: 'width 1s ease-out'
@@ -507,7 +507,7 @@ const GoalTable = ({ goals, setGoals }) => {
                     }}></div>
                   </div>
                   <span style={{ fontSize: '14px', fontWeight: 700, color: '#1e293b' }}>
-                    {Math.round((viewingGoal.currentCo2 / viewingGoal.targetCo2) * 100)}%
+                    {Math.min(Math.round((viewingGoal.currentCo2 / viewingGoal.targetCo2) * 100), 100)}%
                   </span>
                 </div>
               </div>
