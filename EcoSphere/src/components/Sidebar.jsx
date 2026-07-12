@@ -29,7 +29,7 @@ const Sidebar = ({ activePage = 'Dashboard', setActivePage, activeTab = 'Environ
     { name: 'Governance', icon: Briefcase, active: activePage === 'Governance', subItems: ['Policies', 'Policy Acknowledgements', 'Audits', 'Compliance Issues'] },
     { name: 'Gamification', icon: Gamepad2, active: activePage === 'Gamification', subItems: ['Challenges', 'Challenge Participation', 'Badges', 'Rewards', 'Leaderboard'] },
     { name: 'Reports', icon: FileText, active: false, subItems: ['Environmental Report', 'Social Report', 'Governance Report', 'ESG Summary', 'Custom Report Builder'] },
-    { name: 'Settings', icon: Settings, active: false, subItems: ['Departments', 'Categories', 'ESG Configuration', 'Notification Settings'] },
+    { name: 'Settings', icon: Settings, active: activePage === 'Settings', subItems: ['Departments', 'Categories', 'ESG Configuration', 'Notification Settings'] },
   ];
 
   return (
@@ -45,7 +45,7 @@ const Sidebar = ({ activePage = 'Dashboard', setActivePage, activeTab = 'Environ
         <nav className="space-y-1 px-3">
           {menuItems.map((item) => {
             const isExpanded = expandedMenu === item.name;
-            const isClickable = item.name === 'Dashboard' || item.name === 'Environmental' || item.name === 'Social' || item.name === 'Reports' || item.name === 'Governance' || item.name === 'Gamification' || item.subItems;
+            const isClickable = item.name === 'Dashboard' || item.name === 'Environmental' || item.name === 'Social' || item.name === 'Reports' || item.name === 'Governance' || item.name === 'Gamification' || item.name === 'Settings' || item.subItems;
 
             return (
               <div key={item.name} className="flex flex-col">
@@ -73,6 +73,10 @@ const Sidebar = ({ activePage = 'Dashboard', setActivePage, activeTab = 'Environ
                       setActivePage('Gamification');
                       setActiveTab('Challenges');
                       toggleMenu('Gamification');
+                    } else if (item.name === 'Settings') {
+                      setActivePage('Settings');
+                      setActiveTab('Departments');
+                      toggleMenu('Settings');
                     } else if (item.subItems) {
                       toggleMenu(item.name);
                     }
@@ -98,13 +102,13 @@ const Sidebar = ({ activePage = 'Dashboard', setActivePage, activeTab = 'Environ
                   <div className="mt-1 mb-2 ml-4 pl-6 border-l border-slate-100 space-y-1">
                     {item.subItems.map(sub => {
                       const isSubActive = activePage === item.name && activeTab === sub;
-                      const isSubDisabled = item.name !== 'Environmental' && item.name !== 'Social' && item.name !== 'Reports' && item.name !== 'Governance' && item.name !== 'Gamification';
+                      const isSubDisabled = item.name !== 'Environmental' && item.name !== 'Social' && item.name !== 'Reports' && item.name !== 'Governance' && item.name !== 'Gamification' && item.name !== 'Settings';
                       return (
                         <button 
                           key={sub}
                           disabled={isSubDisabled}
                           onClick={() => {
-                            if (item.name === 'Environmental' || item.name === 'Social' || item.name === 'Reports' || item.name === 'Governance' || item.name === 'Gamification') {
+                            if (item.name === 'Environmental' || item.name === 'Social' || item.name === 'Reports' || item.name === 'Governance' || item.name === 'Gamification' || item.name === 'Settings') {
                               setActivePage(item.name);
                               setActiveTab(sub);
                             }

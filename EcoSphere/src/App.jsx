@@ -7,6 +7,7 @@ import EnvironmentalPage from './pages/Environmental/EnvironmentalPage';
 import ReportsPage from './pages/ReportsPage';
 import GovernancePage from './pages/Governance/GovernancePage';
 import GamificationPage from './pages/Gamification/GamificationPage';
+import SettingsPage from './pages/SettingsPage';
 
 import { 
   initialGoals,
@@ -106,6 +107,7 @@ function App() {
   if (location.pathname === '/reports') activePage = 'Reports';
   if (location.pathname === '/governance') activePage = 'Governance';
   if (location.pathname === '/gamification') activePage = 'Gamification';
+  if (location.pathname === '/settings') activePage = 'Settings';
   const handleSetActivePage = (page) => {
     if (page === 'Dashboard') navigate('/dashboard');
     else if (page === 'Environmental') navigate('/environmental');
@@ -113,6 +115,7 @@ function App() {
     else if (page === 'Reports') navigate('/reports');
     else if (page === 'Governance') navigate('/governance');
     else if (page === 'Gamification') navigate('/gamification');
+    else if (page === 'Settings') navigate('/settings');
   };
 
   // Gamification Approval/Redeem Logic
@@ -281,6 +284,7 @@ function App() {
             addNotification={addNotification}
           />
         } />
+        <Route path="/settings" element={<SettingsPage activeTab={activeTab} />} />
       </Routes>
     </Layout>
   );
