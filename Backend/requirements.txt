@@ -16,3 +16,7 @@ psycopg2-binary>=2.9.9
 
 # Production WSGI HTTP Server
 gunicorn>=22.0.0
+
+# API Documentation and Filtering
+django-filter>=24.2
+drf-yasg>=1.21.7
